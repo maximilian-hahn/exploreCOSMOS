@@ -3,3 +3,4 @@
 /package-lock.json
 /package.json
 /script_babylon.js
+dist/bundle.js
