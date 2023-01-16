@@ -6,6 +6,7 @@ import { GUI } from 'dat.gui/build/dat.gui.module.js';
 
 let canvas, renderer, camera, controls, scene, gui;
 let model, model_vertices;
+let point_scale = 1;
 
 init();
 render();
@@ -32,6 +33,7 @@ function init() {
     .onChange(function(e) {
       scene.background = new THREE.Color(e);
   });
+  gui.add({point_scale}, "point_scale", 0.1, 2, 0.005).name("point scale").onChange(value => point_scale = value);
 
   // plane for reference of space
   {
@@ -65,12 +67,12 @@ function init() {
   }
 
   // testing cube
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-  const cube = new THREE.Mesh(geometry, material);
-  model = cube;
-  model_vertices = getVertices(cube);
-  scene.add(cube);
+  // const geometry = new THREE.BoxGeometry(1, 1, 1);
+  // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+  // const cube = new THREE.Mesh(geometry, material);
+  // model = cube;
+  // model_vertices = getVertices(cube);
+  // scene.add(cube);
   // drawVertices(cube);
 
 
@@ -91,17 +93,14 @@ function init() {
     objLoader.load('../models/HumanBaseMesh.obj',
     // called when resource is loaded
     function ( object ) {
-      object.scale.set(0.2, 0.2, 0.2);
-      // object.position.set(0, 10, 0);
-      // camera.lookAt(object.position);
-      // controls.target = object.position;
-      controls.target.x = object.position.x;
-      controls.target.y = object.position.y + 2;
-      controls.target.z = object.position.z;
+      model = object.children[0];
+      model_vertices = getVertices(model);
 
-      // model = object;
+      controls.target.x = model.position.x;
+      controls.target.y = model.position.y + 10;
+      controls.target.z = model.position.z;
       controls.update();
-      scene.add( object );
+      scene.add(model);
     },
     // called when loading is in progresses
     function ( xhr ) {
@@ -121,7 +120,6 @@ function onMouseDown(event) {
   let raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObject(model);
-  console.log(intersects[0].point);
   intersects[0].point.color = new THREE.Color(Math.random() * 0xffffff);
 
   drawNearestVertex(intersects[0].point);
@@ -146,6 +144,12 @@ function render() {
     camera.updateProjectionMatrix();
   }
 
+  scene.children.forEach(element => {
+    if (element.name == "vertex") {
+      element.scale.setScalar(point_scale);
+    }
+  });
+
   controls.update();
   renderer.render(scene, camera);
 
@@ -156,6 +160,7 @@ function render() {
 function drawPoint(position) {
   let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
   point.position.set(...position);
+  point.name = "vertex";
   scene.add(point);
 }
 
@@ -178,8 +183,6 @@ function drawNearestVertex(position) {
 }
 
 function drawVertices(object) {
-  console.log(object.geometry.attributes.position.array);
-
   let geometry = new THREE.BufferGeometry();
   geometry.setAttribute( 'position', new THREE.BufferAttribute( object.geometry.attributes.position.array, 3 ) );
   let material = new THREE.PointsMaterial( {color: 0xff0000} );
