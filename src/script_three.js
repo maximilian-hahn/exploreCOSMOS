@@ -2,11 +2,21 @@ import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
+// import * as hdf5 from 'jsfive';
+import h5wasm from 'h5wasm';
+import { BoxGeometry, BufferGeometry } from 'three';
+import { Vector3 } from 'babylonjs';
 
-let canvas, renderer, camera, controls, scene, gui;
-let model, model_vertices;
+let canvas, renderer, camera, controls, scene, gui, raycaster;
+let model;
+let vertex_selected = false;
+let marked_vertex;
+
+// gui attributes
 let point_scale = 1;
+let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
 render();
@@ -27,13 +37,30 @@ function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color('black');
 
-  gui = new GUI();
-  gui.addColor({color: '#000000'}, 'color')
-    .name('background color')
-    .onChange(function(e) {
-      scene.background = new THREE.Color(e);
-  });
-  gui.add({point_scale}, "point_scale", 0.1, 2, 0.005).name("point scale").onChange(value => point_scale = value);
+  raycaster = new THREE.Raycaster();
+
+  // gui stuff
+  {
+    gui = new GUI();
+    gui.addColor({color: '#000000'}, 'color')
+      .name('background color')
+      .onChange(function(e) {
+        scene.background = new THREE.Color(e);
+    });
+    gui.add({point_scale}, "point_scale", 0.1, 2, 0.005).name("point scale").onChange(value => point_scale = value);
+    let vertex_folder = gui.addFolder('change vertex position');
+    vertex_folder.add(vertex_change, "x", -1, 1, 0.05).name("change vertex x")
+      .onChange(value => {vertex_change.x = value; vertex_selected = true;});
+    vertex_folder.add(vertex_change, "y", -1, 1, 0.05).name("change vertex y")
+      .onChange(value => {vertex_change.y = value; vertex_selected = true;});
+    vertex_folder.add(vertex_change, "z", -1, 1, 0.05).name("change vertex z")
+      .onChange(value => {vertex_change.z = value; vertex_selected = true;});
+    vertex_folder.add({reset: function() {
+      vertex_change.set(0, 0, 0);
+      vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
+      vertex_selected = true;
+      }}, "reset").name("reset position");
+  }
 
   // plane for reference of space
   {
@@ -57,6 +84,19 @@ function init() {
     scene.add(mesh);
   }
 
+  // testing cube
+  const cube = new THREE.Mesh(new BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+  cube.geometry.deleteAttribute('uv');  // TODO: maybe save these attributes and reintegrate them after merging?
+  cube.geometry.deleteAttribute('normal');
+  cube.geometry = BufferGeometryUtils.mergeVertices(cube.geometry);
+  
+  const position = cube.geometry.getAttribute('position');
+  cube.geometry.attributes.original_position = position.clone();
+  model = cube;
+  scene.add(cube);
+  // drawVertices(cube);
+
+
   // hemisphere light
   {
     const skyColor = 0xB1E1FF;  // light blue
@@ -64,23 +104,11 @@ function init() {
     const intensity = 1;
     const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
     scene.add(light);
-  }
-
-  // testing cube
-  // const geometry = new THREE.BoxGeometry(1, 1, 1);
-  // const material = new THREE.MeshBasicMaterial({color: 0x00ff00});
-  // const cube = new THREE.Mesh(geometry, material);
-  // model = cube;
-  // model_vertices = getVertices(cube);
-  // scene.add(cube);
-  // drawVertices(cube);
-
+  }  
 
   // directional light
   {
-    const color = 0xFFFFFF;
-    const intensity = 1;
-    const light = new THREE.DirectionalLight(color, intensity);
+    const light = new THREE.DirectionalLight(0xFFFFFF, 1);
     light.position.set(0, 10, 0);
     light.target.position.set(-50, 0, 0);
     scene.add(light);
@@ -93,14 +121,19 @@ function init() {
     objLoader.load('../models/HumanBaseMesh.obj',
     // called when resource is loaded
     function ( object ) {
-      model = object.children[0];
-      model_vertices = getVertices(model);
+      // model = object.children[0];
+      // model.geometry = BufferGeometryUtils.mergeVertices(model.geometry);
+      // console.log(model);
+      // model.geometry.attributes.position.array[0] = 100;
+      // model.geometry.attributes.position.array[1] = 100;
+      // model.geometry.attributes.position.array[2] = 100;
+
 
       controls.target.x = model.position.x;
-      controls.target.y = model.position.y + 10;
+      controls.target.y = model.position.y + 2; // 10
       controls.target.z = model.position.z;
       controls.update();
-      scene.add(model);
+      // scene.add(model);
     },
     // called when loading is in progresses
     function ( xhr ) {
@@ -113,16 +146,38 @@ function init() {
   }
 
   document.addEventListener('mousedown', onMouseDown);
+  document.getElementById("input").onchange = loadInput;
 }
 
 function onMouseDown(event) {
   let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-  let raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObject(model);
+  if (intersects.length == 0) {
+    console.log("no intersections found");
+    return;
+  }
   intersects[0].point.color = new THREE.Color(Math.random() * 0xffffff);
-
+  console.log("intersection point: ", intersects[0].point);
   drawNearestVertex(intersects[0].point);
+}
+
+function loadInput(event) {
+  console.log("here");
+  let file = document.getElementById('input').files[0];
+  // h5wasm loader https://github.com/usnistgov/h5wasm
+  // let f = new h5wasm.File('../models/' + file.name, 'r');
+  // console.log(f.keys());
+  
+  // hdf5 loader  https://github.com/usnistgov/jsfive
+  // let reader = new FileReader();
+  // reader.onloadend = function(evt) { 
+  //   let array_buffer = evt.target.result;
+  //   let f = new hdf5.File(array_buffer, file.name);
+  //   let points = f.get('expression/representer/points');
+  //   console.log(points);
+  // }
+  // reader.readAsArrayBuffer(file);
 }
 
 // rendering
@@ -149,6 +204,15 @@ function render() {
       element.scale.setScalar(point_scale);
     }
   });
+  if (vertex_selected) {
+    const model_position = model.geometry.getAttribute('position');
+    const model_o_pos = model.geometry.getAttribute('original_position');
+    model_position.setXYZ(0, model_o_pos.getX(0) + vertex_change.x, model_o_pos.getY(0) + vertex_change.y, model_o_pos.getZ(0) + vertex_change.z);
+    model_position.needsUpdate = true;
+    const vertex_o_pos = marked_vertex.original_position;
+    marked_vertex.position.set(vertex_o_pos.x + vertex_change.x, vertex_o_pos.y + vertex_change.y, vertex_o_pos.z + vertex_change.z);
+    vertex_selected = false;
+  }
 
   controls.update();
   renderer.render(scene, camera);
@@ -156,12 +220,20 @@ function render() {
   requestAnimationFrame(render);
 }
 
-
-function drawPoint(position) {
+function createPoint(position) {
   let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
   point.position.set(...position);
+  point.original_position = new THREE.Vector3(...position);
   point.name = "vertex";
   scene.add(point);
+  return point;
+}
+
+function updateMarkedVertex(position) {
+  if (marked_vertex == undefined)
+    marked_vertex = createPoint(position);
+  else
+    marked_vertex.position.set(...position);
 }
 
 function getVertices(object) {
@@ -173,13 +245,14 @@ function getVertices(object) {
   return vertices;
 }
 
-function drawNearestVertex(position) {
+function drawNearestVertex(clicked_position) {
+  const model_vertices = getVertices(model);
   let nearestPoint = model_vertices[0];
   model_vertices.forEach(element => {
-    if (position.distanceTo(element) < position.distanceTo(nearestPoint))
+    if (clicked_position.distanceTo(element) < clicked_position.distanceTo(nearestPoint))
       nearestPoint = element;
   });
-  drawPoint(nearestPoint);
+  updateMarkedVertex(nearestPoint);
 }
 
 function drawVertices(object) {
