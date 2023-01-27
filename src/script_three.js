@@ -12,7 +12,7 @@ import { Vector3 } from 'babylonjs';
 let canvas, renderer, camera, controls, scene, gui, raycaster;
 let model;
 let vertex_selected = false;
-let marked_vertex;
+let marked_vertex, marked_vertex_index;
 
 // gui attributes
 let point_scale = 1;
@@ -207,7 +207,10 @@ function render() {
   if (vertex_selected) {
     const model_position = model.geometry.getAttribute('position');
     const model_o_pos = model.geometry.getAttribute('original_position');
-    model_position.setXYZ(0, model_o_pos.getX(0) + vertex_change.x, model_o_pos.getY(0) + vertex_change.y, model_o_pos.getZ(0) + vertex_change.z);
+    model_position.setXYZ(marked_vertex_index, 
+                          model_o_pos.getX(marked_vertex_index) + vertex_change.x, 
+                          model_o_pos.getY(marked_vertex_index) + vertex_change.y, 
+                          model_o_pos.getZ(marked_vertex_index) + vertex_change.z);
     model_position.needsUpdate = true;
     model.geometry.computeBoundingBox();
     model.geometry.computeBoundingSphere();
@@ -235,8 +238,10 @@ function createPoint(position) {
 function updateMarkedVertex(position) {
   if (marked_vertex == undefined)
     marked_vertex = createPoint(position);
-  else
+  else {
     marked_vertex.position.set(...position);
+    marked_vertex.original_position.set(...position);
+  }
 }
 
 function getVertices(object) {
@@ -251,9 +256,13 @@ function getVertices(object) {
 function drawNearestVertex(clicked_position) {
   const model_vertices = getVertices(model);
   let nearestPoint = model_vertices[0];
+  let i = 0;
   model_vertices.forEach(element => {
-    if (clicked_position.distanceTo(element) < clicked_position.distanceTo(nearestPoint))
+    if (clicked_position.distanceTo(element) < clicked_position.distanceTo(nearestPoint)) {
       nearestPoint = element;
+      marked_vertex_index = i;
+    }
+    i++;
   });
   updateMarkedVertex(nearestPoint);
 }
