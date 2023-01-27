@@ -67,7 +67,7 @@ function init() {
     const planeSize = 40;
 
     const loader = new THREE.TextureLoader();
-    const texture = loader.load('https://r105.threejsfundamentals.org/threejs/resources/images/checker.png');
+    const texture = loader.load('../models/checker.png');
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.magFilter = THREE.NearestFilter;
@@ -141,7 +141,7 @@ function init() {
     },
     // called when loading has errors
     function ( error ) {
-      console.log( 'An error happened' );
+      console.log('An error happened: ', error);
     });
   }
 
@@ -209,6 +209,9 @@ function render() {
     const model_o_pos = model.geometry.getAttribute('original_position');
     model_position.setXYZ(0, model_o_pos.getX(0) + vertex_change.x, model_o_pos.getY(0) + vertex_change.y, model_o_pos.getZ(0) + vertex_change.z);
     model_position.needsUpdate = true;
+    model.geometry.computeBoundingBox();
+    model.geometry.computeBoundingSphere();
+
     const vertex_o_pos = marked_vertex.original_position;
     marked_vertex.position.set(vertex_o_pos.x + vertex_change.x, vertex_o_pos.y + vertex_change.y, vertex_o_pos.z + vertex_change.z);
     vertex_selected = false;
