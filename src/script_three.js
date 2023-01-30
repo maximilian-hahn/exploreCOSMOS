@@ -12,6 +12,7 @@ import { Vector3 } from 'babylonjs';
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
 let model;
 let vertex_selected = false;
+let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
 
 // gui attributes
@@ -55,7 +56,11 @@ function init() {
       .onChange(value => {vertex_change.y = value; vertex_selected = true;});
     vertex_folder.add(vertex_change, "z", -1, 1, 0.05).name("change vertex z")
       .onChange(value => {vertex_change.z = value; vertex_selected = true;});
-    vertex_folder.add({reset: reset_vertex_gui}, "reset").name("reset position");
+    vertex_folder.add({reset_prev: reset_vertex_gui}, "reset_prev").name("reset to previous position");
+    vertex_folder.add({reset_orig: function () {
+      reset_vertex_gui();
+      reset_orig_flag = true;
+    }}, "reset_orig").name("reset to original position");
   }
 
   // plane for reference of space
@@ -152,6 +157,8 @@ function onMouseDown(event) {
   let intersects = raycaster.intersectObject(model);
   if (intersects.length == 0) {
     console.log("no intersections found");
+    // scene.remove(scene.getObjectByName("vertex")); // TODO: remove marked vertex
+    // marked_vertex = undefined;
     return;
   }
   console.log("intersection point: ", intersects[0].point);
@@ -202,7 +209,11 @@ function render() {
   });
   if (vertex_selected) {
     const model_position = model.geometry.getAttribute('position');
-    const model_o_pos = model.geometry.getAttribute('new_position');
+    let model_o_pos = model.geometry.getAttribute('new_position');
+    if (reset_orig_flag) {
+      model_o_pos = model.geometry.getAttribute('original_position');
+      reset_orig_flag = false;
+    }
     model_position.setXYZ(marked_vertex_index, 
                           model_o_pos.getX(marked_vertex_index) + vertex_change.x, 
                           model_o_pos.getY(marked_vertex_index) + vertex_change.y, 
