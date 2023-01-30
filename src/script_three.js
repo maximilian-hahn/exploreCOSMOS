@@ -9,7 +9,7 @@ import h5wasm from 'h5wasm';
 import { BoxGeometry, BufferGeometry } from 'three';
 import { Vector3 } from 'babylonjs';
 
-let canvas, renderer, camera, controls, scene, gui, raycaster;
+let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
 let model;
 let vertex_selected = false;
 let marked_vertex, marked_vertex_index;
@@ -43,23 +43,19 @@ function init() {
   {
     gui = new GUI();
     gui.addColor({color: '#000000'}, 'color')
-      .name('background color')
+      .name('model color')
       .onChange(function(e) {
-        scene.background = new THREE.Color(e);
+        model.material.color = new THREE.Color(e);
     });
     gui.add({point_scale}, "point_scale", 0.1, 2, 0.005).name("point scale").onChange(value => point_scale = value);
-    let vertex_folder = gui.addFolder('change vertex position');
+    vertex_folder = gui.addFolder('change vertex position');
     vertex_folder.add(vertex_change, "x", -1, 1, 0.05).name("change vertex x")
       .onChange(value => {vertex_change.x = value; vertex_selected = true;});
     vertex_folder.add(vertex_change, "y", -1, 1, 0.05).name("change vertex y")
       .onChange(value => {vertex_change.y = value; vertex_selected = true;});
     vertex_folder.add(vertex_change, "z", -1, 1, 0.05).name("change vertex z")
       .onChange(value => {vertex_change.z = value; vertex_selected = true;});
-    vertex_folder.add({reset: function() {
-      vertex_change.set(0, 0, 0);
-      vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
-      vertex_selected = true;
-      }}, "reset").name("reset position");
+    vertex_folder.add({reset: reset_vertex_gui}, "reset").name("reset position");
   }
 
   // plane for reference of space
@@ -85,16 +81,20 @@ function init() {
   }
 
   // testing cube
-  const cube = new THREE.Mesh(new BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-  cube.geometry.deleteAttribute('uv');  // TODO: maybe save these attributes and reintegrate them after merging?
-  cube.geometry.deleteAttribute('normal');
-  cube.geometry = BufferGeometryUtils.mergeVertices(cube.geometry);
-  
-  const position = cube.geometry.getAttribute('position');
-  cube.geometry.attributes.original_position = position.clone();
-  model = cube;
-  scene.add(cube);
-  // drawVertices(cube);
+  {
+    const cube = new THREE.Mesh(new BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+    cube.geometry.deleteAttribute('uv');  // TODO: maybe save these attributes and reintegrate them after merging?
+    cube.geometry.deleteAttribute('normal');
+    cube.geometry = BufferGeometryUtils.mergeVertices(cube.geometry);
+    
+    const position = cube.geometry.getAttribute('position');
+    cube.geometry.attributes.original_position = position.clone();
+    cube.geometry.attributes.new_position = position.clone();
+    model = cube;
+    console.log(model);
+    scene.add(cube);
+    // drawVertices(cube);
+  }
 
 
   // hemisphere light
@@ -116,7 +116,7 @@ function init() {
   }
 
   // obj loader
-  {
+  /*{
     const objLoader = new OBJLoader();
     objLoader.load('../models/HumanBaseMesh.obj',
     // called when resource is loaded
@@ -124,9 +124,6 @@ function init() {
       // model = object.children[0];
       // model.geometry = BufferGeometryUtils.mergeVertices(model.geometry);
       // console.log(model);
-      // model.geometry.attributes.position.array[0] = 100;
-      // model.geometry.attributes.position.array[1] = 100;
-      // model.geometry.attributes.position.array[2] = 100;
 
 
       controls.target.x = model.position.x;
@@ -143,7 +140,7 @@ function init() {
     function ( error ) {
       console.log('An error happened: ', error);
     });
-  }
+  }*/
 
   document.addEventListener('mousedown', onMouseDown);
   document.getElementById("input").onchange = loadInput;
@@ -157,7 +154,6 @@ function onMouseDown(event) {
     console.log("no intersections found");
     return;
   }
-  intersects[0].point.color = new THREE.Color(Math.random() * 0xffffff);
   console.log("intersection point: ", intersects[0].point);
   drawNearestVertex(intersects[0].point);
 }
@@ -206,7 +202,7 @@ function render() {
   });
   if (vertex_selected) {
     const model_position = model.geometry.getAttribute('position');
-    const model_o_pos = model.geometry.getAttribute('original_position');
+    const model_o_pos = model.geometry.getAttribute('new_position');
     model_position.setXYZ(marked_vertex_index, 
                           model_o_pos.getX(marked_vertex_index) + vertex_change.x, 
                           model_o_pos.getY(marked_vertex_index) + vertex_change.y, 
@@ -239,6 +235,8 @@ function updateMarkedVertex(position) {
   if (marked_vertex == undefined)
     marked_vertex = createPoint(position);
   else {
+    model.geometry.attributes.new_position = model.geometry.getAttribute('position').clone();
+    reset_vertex_gui();
     marked_vertex.position.set(...position);
     marked_vertex.original_position.set(...position);
   }
@@ -256,6 +254,7 @@ function getVertices(object) {
 function drawNearestVertex(clicked_position) {
   const model_vertices = getVertices(model);
   let nearestPoint = model_vertices[0];
+  marked_vertex_index = 0;
   let i = 0;
   model_vertices.forEach(element => {
     if (clicked_position.distanceTo(element) < clicked_position.distanceTo(nearestPoint)) {
@@ -273,4 +272,10 @@ function drawVertices(object) {
   let material = new THREE.PointsMaterial( {color: 0xff0000} );
   let points = new THREE.Points(geometry, material);
   scene.add(points);
+}
+
+function reset_vertex_gui() {
+  vertex_change.set(0, 0, 0);
+  vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
+  vertex_selected = true;
 }
