@@ -149,21 +149,40 @@ function init() {
   }*/
 
   document.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('wheel', onWheel);
   document.getElementById("input").onchange = loadInput;
 }
 
 function onMouseDown(event) {
+  if (event.target != document.querySelector('#c')) return;
   let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(mouse, camera);
   let intersects = raycaster.intersectObject(model);
   if (intersects.length == 0) {
     console.log("no intersections found");
-    // scene.remove(scene.getObjectByName("vertex")); // TODO: remove marked vertex
-    // marked_vertex = undefined;
+    scene.remove(scene.getObjectByName("vertex"));
+    marked_vertex = undefined;
     return;
   }
   console.log("intersection point: ", intersects[0].point);
   drawNearestVertex(intersects[0].point);
+}
+
+function onWheel(event) {
+  if (marked_vertex == undefined) {
+    controls.enableZoom = true;
+    return;
+  }
+  controls.enableZoom = false;
+  if (event.deltaY >= -2 && event.deltaY <= 2) {
+    vertex_selected = true;
+    return;
+  }
+  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  let scroll_vector = raycaster.ray.direction.multiplyScalar(event.deltaY * 0.05);
+  
+  if (scroll_vector.length() > vertex_change.length()) vertex_change = scroll_vector;
 }
 
 function loadInput(event) {
