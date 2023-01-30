@@ -2,12 +2,13 @@ import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { BoxGeometry, BufferGeometry } from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
-// import * as hdf5 from 'jsfive';
-import h5wasm from 'h5wasm';
-import { BoxGeometry, BufferGeometry } from 'three';
-import { Vector3 } from 'babylonjs';
+import * as hdf5 from 'jsfive';
+// import h5wasm from 'h5wasm';
+// const { FS } = await h5wasm.ready;
+
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
 let model;
@@ -173,14 +174,14 @@ function loadInput(event) {
   // console.log(f.keys());
   
   // hdf5 loader  https://github.com/usnistgov/jsfive
-  // let reader = new FileReader();
-  // reader.onloadend = function(evt) { 
-  //   let array_buffer = evt.target.result;
-  //   let f = new hdf5.File(array_buffer, file.name);
-  //   let points = f.get('expression/representer/points');
-  //   console.log(points);
-  // }
-  // reader.readAsArrayBuffer(file);
+  let reader = new FileReader();
+  reader.onloadend = function(evt) { 
+    let array_buffer = evt.target.result;
+    let f = new hdf5.File(array_buffer, file.name);
+    let points = f.get('expression/representer/points');
+    console.log(points);
+  }
+  reader.readAsArrayBuffer(file);
 }
 
 // rendering
