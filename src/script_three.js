@@ -1,5 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
+import * as math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { BoxGeometry, BufferGeometry } from 'three';
@@ -30,6 +31,7 @@ function init() {
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
   camera.position.set(0, 10, 10);
+  console.log(camera);
 
   controls = new OrbitControls(camera, canvas);
   // controls.maxDistance = 1;
@@ -49,7 +51,7 @@ function init() {
       .onChange(function(e) {
         model.material.color = new THREE.Color(e);
     });
-    gui.add({point_scale}, "point_scale", 0.1, 2, 0.005).name("point scale").onChange(value => point_scale = value);
+    gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     vertex_folder = gui.addFolder('change vertex position');
     vertex_folder.add(vertex_change, "x", -1, 1, 0.05).name("change vertex x")
       .onChange(value => {vertex_change.x = value; vertex_selected = true;});
@@ -64,8 +66,31 @@ function init() {
     }}, "reset_orig").name("reset to original position");
   }
 
-  // plane for reference of space
+
+  // hemisphere light
   {
+    const skyColor = 0xB1E1FF;  // light blue
+    const groundColor = 0xB97A20;  // brownish orange
+    const intensity = 1;
+    const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+    scene.add(light);
+  }  
+
+  // directional light
+  {
+    const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+    light.position.set(-10, 2, 0);
+    scene.add(light);
+  }
+
+  // ambient light
+  {
+    scene.add(new THREE.AmbientLight(0x404040));
+  }
+  
+
+  // plane for reference of space
+  /*{
     const planeSize = 40;
 
     const loader = new THREE.TextureLoader();
@@ -84,14 +109,17 @@ function init() {
     const mesh = new THREE.Mesh(planeGeo, planeMat);
     mesh.rotation.x = Math.PI * -.5;
     scene.add(mesh);
-  }
+  }*/
 
   // testing cube
-  {
-    const cube = new THREE.Mesh(new BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
-    cube.geometry.deleteAttribute('uv');  // TODO: maybe save these attributes and reintegrate them after merging?
+  /*{
+    const cube = new THREE.Mesh(new BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({color: 0x00ff00}));
+
+    cube.geometry.deleteAttribute('uv');  // TODO: uv and normals broken after this
     cube.geometry.deleteAttribute('normal');
+
     cube.geometry = BufferGeometryUtils.mergeVertices(cube.geometry);
+    cube.geometry.computeVertexNormals();
     
     const position = cube.geometry.getAttribute('position');
     cube.geometry.attributes.original_position = position.clone();
@@ -99,27 +127,8 @@ function init() {
     model = cube;
     console.log(model);
     scene.add(cube);
-    // drawVertices(cube);
-  }
-
-
-  // hemisphere light
-  {
-    const skyColor = 0xB1E1FF;  // light blue
-    const groundColor = 0xB97A20;  // brownish orange
-    const intensity = 1;
-    const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
-    scene.add(light);
-  }  
-
-  // directional light
-  {
-    const light = new THREE.DirectionalLight(0xFFFFFF, 1);
-    light.position.set(0, 10, 0);
-    light.target.position.set(-50, 0, 0);
-    scene.add(light);
-    scene.add(light.target);
-  }
+    // drawVertices(cube.geometry.attributes.position.array);
+  }*/
 
   // obj loader
   /*{
@@ -151,6 +160,7 @@ function init() {
   document.addEventListener('mousedown', onMouseDown);
   document.addEventListener('wheel', onWheel);
   document.getElementById("input").onchange = loadInput;
+  console.log(scene);
 }
 
 function onMouseDown(event) {
@@ -197,8 +207,14 @@ function loadInput(event) {
   reader.onloadend = function(evt) { 
     let array_buffer = evt.target.result;
     let f = new hdf5.File(array_buffer, file.name);
-    let points = f.get('expression/representer/points');
-    console.log(points);
+    let points = f.get('shape/representer/points');
+    let cells = f.get('shape/representer/cells');
+
+    // weird I would have to do this but input has flipped dimensions?
+    let point_positions = new Float32Array(math.flatten(math.transpose(math.reshape(points.value, points.shape))));
+    let point_indices = new Uint16Array(math.flatten(math.transpose(math.reshape(cells.value, cells.shape))));
+    loadMesh(point_positions, point_indices);
+    drawVertices(point_positions);
   }
   reader.readAsArrayBuffer(file);
 }
@@ -239,7 +255,6 @@ function render() {
                           model_o_pos.getY(marked_vertex_index) + vertex_change.y, 
                           model_o_pos.getZ(marked_vertex_index) + vertex_change.z);
     model_position.needsUpdate = true;
-    model.geometry.computeBoundingBox();
     model.geometry.computeBoundingSphere();
 
     const vertex_o_pos = marked_vertex.original_position;
@@ -297,12 +312,30 @@ function drawNearestVertex(clicked_position) {
   updateMarkedVertex(nearestPoint);
 }
 
-function drawVertices(object) {
+function drawVertices(vertices) {
   let geometry = new THREE.BufferGeometry();
-  geometry.setAttribute( 'position', new THREE.BufferAttribute( object.geometry.attributes.position.array, 3 ) );
-  let material = new THREE.PointsMaterial( {color: 0xff0000} );
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  let material = new THREE.PointsMaterial({color: 0xff0000});
   let points = new THREE.Points(geometry, material);
   scene.add(points);
+}
+
+function loadMesh(vertices, indices) {
+  let geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0});
+  let mesh = new THREE.Mesh(geometry, material);
+
+  mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
+  mesh.geometry.computeVertexNormals();
+  
+  const position = mesh.geometry.getAttribute('position');
+  mesh.geometry.attributes.original_position = position.clone();
+  mesh.geometry.attributes.new_position = position.clone();
+  console.log(mesh);
+  model = mesh;
+  scene.add(mesh);
 }
 
 function reset_vertex_gui() {
