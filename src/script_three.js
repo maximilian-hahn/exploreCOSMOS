@@ -46,7 +46,7 @@ function init() {
   raycaster = new THREE.Raycaster();
 
   axes_scene = new THREE.Scene();
-  const axes_helper = new THREE.AxesHelper(5);
+  const axes_helper = new THREE.AxesHelper(500);
   axes_scene.add(axes_helper);
 
   // gui stuff
@@ -59,11 +59,11 @@ function init() {
     });
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     vertex_folder = gui.addFolder('change vertex position');
-    vertex_folder.add(vertex_change, "x", -1, 1, 0.05).name("change vertex x")
+    vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
       .onChange(value => {vertex_change.x = value; vertex_selected = true;});
-    vertex_folder.add(vertex_change, "y", -1, 1, 0.05).name("change vertex y")
+    vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change vertex y")
       .onChange(value => {vertex_change.y = value; vertex_selected = true;});
-    vertex_folder.add(vertex_change, "z", -1, 1, 0.05).name("change vertex z")
+    vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
       .onChange(value => {vertex_change.z = value; vertex_selected = true;});
     vertex_folder.add({reset_prev: reset_vertex_gui}, "reset_prev").name("reset to previous position");
     vertex_folder.add({reset_orig: function () {
@@ -96,7 +96,7 @@ function init() {
   
 
   // plane for reference of space
-  {
+  /*{
     const planeSize = 40;
 
     const loader = new THREE.TextureLoader();
@@ -115,7 +115,7 @@ function init() {
     const mesh = new THREE.Mesh(planeGeo, planeMat);
     mesh.rotation.x = Math.PI * -.5;
     scene.add(mesh);
-  }
+  }*/
 
   // testing cube
   /*{
