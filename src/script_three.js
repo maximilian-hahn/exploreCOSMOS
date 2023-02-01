@@ -19,7 +19,7 @@ let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
 
 // gui attributes
-let point_scale = 1;
+let point_scale = 10;
 let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
@@ -201,17 +201,16 @@ function render() {
   renderer.render(scene, camera);
 
   //render axes
-  renderer.setViewport(10, window.innerHeight - 100 - 10, 100, 100);
+  renderer.setViewport(window.innerWidth - window.innerHeight / 8, 0, window.innerHeight / 8, window.innerHeight / 8);
   renderer.render(axes_scene, camera);
 }
 
 
 function update() {
   scene.children.forEach(element => {
-    if (element.name == "vertex") {
-      element.scale.setScalar(point_scale);
-    }
+    if (element.name == "vertex") element.scale.setScalar(point_scale);
   });
+
   if (vertex_selected) {
     const model_position = model.geometry.getAttribute('position');
     let model_o_pos = model.geometry.getAttribute('new_position');
@@ -235,13 +234,17 @@ function update() {
 }
 
 
-
 function createPoint(position) {
   let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
   point.position.set(...position);
   point.original_position = new THREE.Vector3(...position);
   point.name = "vertex";
+  
+  const point_axes = new THREE.AxesHelper(1);
+  point.add(point_axes);
+  
   scene.add(point);
+
   return point;
 }
 
