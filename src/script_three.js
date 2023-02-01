@@ -12,6 +12,7 @@ import * as hdf5 from 'jsfive';
 
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
+let axes_scene;
 let model;
 let vertex_selected = false;
 let reset_orig_flag = false;
@@ -22,12 +23,13 @@ let point_scale = 1;
 let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
-render();
+animate();
 
 function init() {
   // init rendering
   canvas = document.querySelector('#c');
   renderer = new THREE.WebGLRenderer({canvas});
+  renderer.autoClear = false;
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
   camera.position.set(0, 10, 10);
@@ -42,6 +44,10 @@ function init() {
   scene.background = new THREE.Color('black');
 
   raycaster = new THREE.Raycaster();
+
+  axes_scene = new THREE.Scene();
+  const axes_helper = new THREE.AxesHelper(5);
+  axes_scene.add(axes_helper);
 
   // gui stuff
   {
@@ -90,7 +96,7 @@ function init() {
   
 
   // plane for reference of space
-  /*{
+  {
     const planeSize = 40;
 
     const loader = new THREE.TextureLoader();
@@ -109,7 +115,7 @@ function init() {
     const mesh = new THREE.Mesh(planeGeo, planeMat);
     mesh.rotation.x = Math.PI * -.5;
     scene.add(mesh);
-  }*/
+  }
 
   // testing cube
   /*{
@@ -163,81 +169,44 @@ function init() {
   console.log(scene);
 }
 
-function onMouseDown(event) {
-  if (event.target != document.querySelector('#c')) return;
-  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(mouse, camera);
-  let intersects = raycaster.intersectObject(model);
-  if (intersects.length == 0) {
-    console.log("no intersections found");
-    scene.remove(scene.getObjectByName("vertex"));
-    marked_vertex = undefined;
-    return;
-  }
-  console.log("intersection point: ", intersects[0].point);
-  drawNearestVertex(intersects[0].point);
-}
 
-function onWheel(event) {
-  if (marked_vertex == undefined) {
-    controls.enableZoom = true;
-    return;
-  }
-  controls.enableZoom = false;
-  if (event.deltaY >= -2 && event.deltaY <= 2) {
-    vertex_selected = true;
-    return;
-  }
-  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(mouse, camera);
-  let scroll_vector = raycaster.ray.direction.multiplyScalar(event.deltaY * 0.05);
-  
-  if (scroll_vector.length() > vertex_change.length()) vertex_change = scroll_vector;
-}
-
-function loadInput(event) {
-  console.log("here");
-  let file = document.getElementById('input').files[0];
-  // h5wasm loader https://github.com/usnistgov/h5wasm
-  // let f = new h5wasm.File('../models/' + file.name, 'r');
-  // console.log(f.keys());
-  
-  // hdf5 loader  https://github.com/usnistgov/jsfive
-  let reader = new FileReader();
-  reader.onloadend = function(evt) { 
-    let array_buffer = evt.target.result;
-    let f = new hdf5.File(array_buffer, file.name);
-    let points = f.get('shape/representer/points');
-    let cells = f.get('shape/representer/cells');
-
-    // weird I would have to do this but input has flipped dimensions?
-    let point_positions = new Float32Array(math.flatten(math.transpose(math.reshape(points.value, points.shape))));
-    let point_indices = new Uint16Array(math.flatten(math.transpose(math.reshape(cells.value, cells.shape))));
-    loadMesh(point_positions, point_indices);
-    drawVertices(point_positions);
-  }
-  reader.readAsArrayBuffer(file);
+function animate() {
+  requestAnimationFrame(animate);
+  render();
+  update();
 }
 
 // rendering
-function resizeRendererToDisplaySize(renderer) {
-  const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const needResize = canvas.width !== width || canvas.height !== height;
-  if (needResize) {
-    renderer.setSize(width, height, false);
-  }
-  return needResize;
-}
-
 function render() {
+  function resizeRendererToDisplaySize(renderer) {
+    const canvas = renderer.domElement;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const needResize = canvas.width !== width || canvas.height !== height;
+    if (needResize) {
+      renderer.setSize(width, height, false);
+    }
+    return needResize;
+  }
+
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
   }
 
+  // render normal scene
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  renderer.clear();
+  renderer.render(scene, camera);
+
+  //render axes
+  renderer.setViewport(10, window.innerHeight - 100 - 10, 100, 100);
+  renderer.render(axes_scene, camera);
+}
+
+
+function update() {
   scene.children.forEach(element => {
     if (element.name == "vertex") {
       element.scale.setScalar(point_scale);
@@ -263,10 +232,9 @@ function render() {
   }
 
   controls.update();
-  renderer.render(scene, camera);
-
-  requestAnimationFrame(render);
 }
+
+
 
 function createPoint(position) {
   let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
@@ -343,3 +311,62 @@ function reset_vertex_gui() {
   vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
   vertex_selected = true;
 }
+
+
+
+function onMouseDown(event) {
+  if (event.target != document.querySelector('#c')) return;
+  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  let intersects = raycaster.intersectObject(model);
+  if (intersects.length == 0) {
+    console.log("no intersections found");
+    scene.remove(scene.getObjectByName("vertex"));
+    marked_vertex = undefined;
+    return;
+  }
+  console.log("intersection point: ", intersects[0].point);
+  drawNearestVertex(intersects[0].point);
+}
+
+function onWheel(event) {
+  if (marked_vertex == undefined) {
+    controls.enableZoom = true;
+    return;
+  }
+  controls.enableZoom = false;
+  if (event.deltaY >= -2 && event.deltaY <= 2) {
+    vertex_selected = true;
+    return;
+  }
+  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  let scroll_vector = raycaster.ray.direction.multiplyScalar(event.deltaY * 0.05);
+  
+  if (scroll_vector.length() > vertex_change.length()) vertex_change = scroll_vector;
+}
+
+function loadInput(event) {
+  console.log("here");
+  let file = document.getElementById('input').files[0];
+  // h5wasm loader https://github.com/usnistgov/h5wasm
+  // let f = new h5wasm.File('../models/' + file.name, 'r');
+  // console.log(f.keys());
+  
+  // hdf5 loader  https://github.com/usnistgov/jsfive
+  let reader = new FileReader();
+  reader.onloadend = function(evt) { 
+    let array_buffer = evt.target.result;
+    let f = new hdf5.File(array_buffer, file.name);
+    let points = f.get('shape/representer/points');
+    let cells = f.get('shape/representer/cells');
+
+    // weird I would have to do this but input has flipped dimensions?
+    let point_positions = new Float32Array(math.flatten(math.transpose(math.reshape(points.value, points.shape))));
+    let point_indices = new Uint16Array(math.flatten(math.transpose(math.reshape(cells.value, cells.shape))));
+    loadMesh(point_positions, point_indices);
+    drawVertices(point_positions);
+  }
+  reader.readAsArrayBuffer(file);
+}
+
