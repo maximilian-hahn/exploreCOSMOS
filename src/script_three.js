@@ -3,12 +3,9 @@ import * as THREE from 'three';
 import * as math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { BoxGeometry, BufferGeometry } from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as hdf5 from 'jsfive';
-// import h5wasm from 'h5wasm';
-// const { FS } = await h5wasm.ready;
 
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
@@ -60,12 +57,11 @@ function init() {
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     vertex_folder = gui.addFolder('change vertex position');
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
-      .onChange(value => {vertex_change.x = value; vertex_selected = true;});
+      .onChange(value => vertex_change.x = value);
     vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change vertex y")
-      .onChange(value => {vertex_change.y = value; vertex_selected = true;});
+      .onChange(value => vertex_change.y = value);
     vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
-      .onChange(value => {vertex_change.z = value; vertex_selected = true;});
-    vertex_folder.add({reset_prev: reset_vertex_gui}, "reset_prev").name("reset to previous position");
+      .onChange(value => vertex_change.z = value);
     vertex_folder.add({reset_orig: function () {
       reset_vertex_gui();
       reset_orig_flag = true;
@@ -129,7 +125,6 @@ function init() {
     
     const position = cube.geometry.getAttribute('position');
     cube.geometry.attributes.original_position = position.clone();
-    cube.geometry.attributes.new_position = position.clone();
     model = cube;
     console.log(model);
     scene.add(cube);
@@ -208,25 +203,30 @@ function render() {
 
 function update() {
   scene.children.forEach(element => {
-    if (element.name == "vertex") element.scale.setScalar(point_scale);
+    if (element.name == "marked vertex") element.scale.setScalar(point_scale);
   });
 
-  if (vertex_selected) {
+  if (vertex_selected || vertex_change.length() > 0) {
     const model_position = model.geometry.getAttribute('position');
-    let model_o_pos = model.geometry.getAttribute('new_position');
+    let model_old_pos = model_position;
+    let marked_vertex_old_pos = marked_vertex.position;
     if (reset_orig_flag) {
-      model_o_pos = model.geometry.getAttribute('original_position');
+      model_old_pos = model.geometry.getAttribute('original_position');
+      marked_vertex_old_pos = marked_vertex.original_position;
       reset_orig_flag = false;
     }
+
     model_position.setXYZ(marked_vertex_index, 
-                          model_o_pos.getX(marked_vertex_index) + vertex_change.x, 
-                          model_o_pos.getY(marked_vertex_index) + vertex_change.y, 
-                          model_o_pos.getZ(marked_vertex_index) + vertex_change.z);
+      model_old_pos.getX(marked_vertex_index) + vertex_change.x, 
+      model_old_pos.getY(marked_vertex_index) + vertex_change.y, 
+      model_old_pos.getZ(marked_vertex_index) + vertex_change.z);
+    
     model_position.needsUpdate = true;
     model.geometry.computeBoundingSphere();
 
-    const vertex_o_pos = marked_vertex.original_position;
-    marked_vertex.position.set(vertex_o_pos.x + vertex_change.x, vertex_o_pos.y + vertex_change.y, vertex_o_pos.z + vertex_change.z);
+    marked_vertex.position.set(marked_vertex_old_pos.x + vertex_change.x, marked_vertex_old_pos.y + vertex_change.y, marked_vertex_old_pos.z + vertex_change.z);
+
+    vertex_change.set(0, 0, 0);
     vertex_selected = false;
   }
 
@@ -238,10 +238,23 @@ function createPoint(position) {
   let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
   point.position.set(...position);
   point.original_position = new THREE.Vector3(...position);
-  point.name = "vertex";
+  point.name = "marked vertex";
   
-  const point_axes = new THREE.AxesHelper(1);
-  point.add(point_axes);
+  const arrow_x = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xff0000, 0.5, 0.5);
+  arrow_x.name = "x_axis";
+  arrow_x.children[0].name = "x_axis";
+  arrow_x.children[1].name = "x_axis";
+  const arrow_y = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1, 0x00ff00, 0.5, 0.5);
+  arrow_y.name = "y_axis";
+  arrow_y.children[0].name = "y_axis";
+  arrow_y.children[1].name = "y_axis";
+  const arrow_z = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1, 0x0000ff, 0.5, 0.5);
+  arrow_z.name = "z_axis";
+  arrow_z.children[0].name = "z_axis";
+  arrow_z.children[1].name = "z_axis";
+  point.add(arrow_x);
+  point.add(arrow_y);
+  point.add(arrow_z);
   
   scene.add(point);
 
@@ -252,7 +265,6 @@ function updateMarkedVertex(position) {
   if (marked_vertex == undefined)
     marked_vertex = createPoint(position);
   else {
-    model.geometry.attributes.new_position = model.geometry.getAttribute('position').clone();
     reset_vertex_gui();
     marked_vertex.position.set(...position);
     marked_vertex.original_position.set(...position);
@@ -303,7 +315,7 @@ function loadMesh(vertices, indices) {
   
   const position = mesh.geometry.getAttribute('position');
   mesh.geometry.attributes.original_position = position.clone();
-  mesh.geometry.attributes.new_position = position.clone();
+  mesh.name = "model";
   console.log(mesh);
   model = mesh;
   scene.add(mesh);
@@ -321,15 +333,32 @@ function onMouseDown(event) {
   if (event.target != document.querySelector('#c')) return;
   let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(mouse, camera);
-  let intersects = raycaster.intersectObject(model);
-  if (intersects.length == 0) {
-    console.log("no intersections found");
-    scene.remove(scene.getObjectByName("vertex"));
-    marked_vertex = undefined;
+
+  if (window.event.ctrlKey) { // set marked vertex with crtl + click
+    let intersects = raycaster.intersectObject(model);
+    if (intersects.length == 0) {
+      console.log("no intersection with the model found");
+      scene.remove(scene.getObjectByName("marked vertex"));
+      marked_vertex = undefined;
+      return;
+    }
+    console.log("intersection point: ", intersects[0].point);
+    drawNearestVertex(intersects[0].point);
     return;
   }
-  console.log("intersection point: ", intersects[0].point);
-  drawNearestVertex(intersects[0].point);
+  
+  // change marked vertex position
+  if (marked_vertex == undefined) return;
+  let intersects = raycaster.intersectObject(marked_vertex);
+  if (intersects.length == 0) {
+    console.log("no intersection with the arrow axes found");
+    return;
+  }
+  console.log(intersects[0].object.name);
+  if (intersects[0].object.name == "x_axis") vertex_change.setX(1);
+  else if (intersects[0].object.name == "y_axis") vertex_change.setY(1);
+  else if (intersects[0].object.name == "z_axis") vertex_change.setZ(1);
+
 }
 
 function onWheel(event) {
