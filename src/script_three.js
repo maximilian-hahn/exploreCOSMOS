@@ -14,6 +14,7 @@ let model;
 let vertex_selected = false;
 let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
+let mouse_down = false;
 
 // gui attributes
 let point_scale = 10;
@@ -159,6 +160,8 @@ function init() {
   }*/
 
   document.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp);
   document.addEventListener('wheel', onWheel);
   document.getElementById("input").onchange = loadInput;
   console.log(scene);
@@ -239,6 +242,9 @@ function createPoint(position) {
   point.position.set(...position);
   point.original_position = new THREE.Vector3(...position);
   point.name = "marked vertex";
+  point.marked_x = false;
+  point.marked_y = false;
+  point.marked_z = false;
   
   const arrow_x = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xff0000, 0.5, 0.5);
   arrow_x.name = "x_axis";
@@ -330,6 +336,7 @@ function reset_vertex_gui() {
 
 
 function onMouseDown(event) {
+  mouse_down = true;
   if (event.target != document.querySelector('#c')) return;
   let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(mouse, camera);
@@ -355,9 +362,31 @@ function onMouseDown(event) {
     return;
   }
   console.log(intersects[0].object.name);
-  if (intersects[0].object.name == "x_axis") vertex_change.setX(1);
-  else if (intersects[0].object.name == "y_axis") vertex_change.setY(1);
-  else if (intersects[0].object.name == "z_axis") vertex_change.setZ(1);
+  if (intersects[0].object.name == "x_axis") marked_vertex.marked_x = true;
+  else if (intersects[0].object.name == "y_axis") marked_vertex.marked_y = true;
+  else if (intersects[0].object.name == "z_axis") marked_vertex.marked_z = true;
+  console.log(marked_vertex.marked_x);
+}
+
+function onMouseUp(event) {
+  mouse_down = false;
+  if (marked_vertex == undefined) return;
+  marked_vertex.marked_x = false;
+  marked_vertex.marked_y = false;
+  marked_vertex.marked_z = false;
+}
+
+function onMouseMove(event) {
+  if (!mouse_down || marked_vertex == undefined ||
+      !(marked_vertex.marked_x || marked_vertex.marked_y || marked_vertex.marked_z)) {
+    controls.enableRotate = true;
+    return;
+  }
+  controls.enableRotate = false;
+  console.log(event.movementX, event.movementY);
+  if (marked_vertex.marked_x) vertex_change.x = event.movementX;
+  if (marked_vertex.marked_y) vertex_change.y = event.movementX;
+  if (marked_vertex.marked_z) vertex_change.z = event.movementX;
 
 }
 
