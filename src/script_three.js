@@ -1,6 +1,6 @@
 import './style.css';
 import * as THREE from 'three';
-import * as math from 'mathjs';
+import * as Math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
@@ -384,9 +384,10 @@ function onMouseMove(event) {
   }
   controls.enableRotate = false;
   console.log(event.movementX, event.movementY);
-  if (marked_vertex.marked_x) vertex_change.x = event.movementX;
-  if (marked_vertex.marked_y) vertex_change.y = event.movementX;
-  if (marked_vertex.marked_z) vertex_change.z = event.movementX;
+
+  if (marked_vertex.marked_x) vertex_change.x = event.movementX / 4;
+  if (marked_vertex.marked_y) vertex_change.y = -event.movementY / 4;
+  if (marked_vertex.marked_z) vertex_change.z = event.movementX / 4;
 
 }
 
@@ -423,8 +424,8 @@ function loadInput(event) {
     let cells = f.get('shape/representer/cells');
 
     // weird I would have to do this but input has flipped dimensions?
-    let point_positions = new Float32Array(math.flatten(math.transpose(math.reshape(points.value, points.shape))));
-    let point_indices = new Uint16Array(math.flatten(math.transpose(math.reshape(cells.value, cells.shape))));
+    let point_positions = new Float32Array(Math.flatten(Math.transpose(Math.reshape(points.value, points.shape))));
+    let point_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(cells.value, cells.shape))));
     loadMesh(point_positions, point_indices);
     drawVertices(point_positions);
   }
