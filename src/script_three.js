@@ -386,7 +386,7 @@ function onMouseMove(event) {
   console.log(event.movementX, event.movementY);
 
   if (marked_vertex.marked_x) vertex_change.x = event.movementX / 4;
-  if (marked_vertex.marked_y) vertex_change.y = -event.movementY / 4;
+  if (marked_vertex.marked_y) vertex_change.y = -(event.movementY / 4);
   if (marked_vertex.marked_z) vertex_change.z = event.movementX / 4;
 
 }
