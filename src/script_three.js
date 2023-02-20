@@ -55,6 +55,10 @@ function init() {
       .onChange(function(e) {
         model.material.color = new THREE.Color(e);
     });
+    gui.add({show_vertices: function() {
+      let points = scene.getObjectByName("points");
+      points.visible = !points.visible;
+    }}, "show_vertices").name("show/hide vertices");
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     vertex_folder = gui.addFolder('change vertex position');
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
@@ -318,6 +322,7 @@ function drawVertices(vertices) {
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   let material = new THREE.PointsMaterial({color: 0xff0000});
   let points = new THREE.Points(geometry, material);
+  points.name = "points";
   scene.add(points);
 }
 
@@ -432,11 +437,7 @@ function onWheel(event) {
 }
 
 function loadInput(event) {
-  console.log("here");
   let file = document.getElementById('input').files[0];
-  // h5wasm loader https://github.com/usnistgov/h5wasm
-  // let f = new h5wasm.File('../models/' + file.name, 'r');
-  // console.log(f.keys());
   
   // hdf5 loader  https://github.com/usnistgov/jsfive
   let reader = new FileReader();
