@@ -250,14 +250,26 @@ function createPoint(position) {
   arrow_x.name = "x_axis";
   arrow_x.children[0].name = "x_axis";
   arrow_x.children[1].name = "x_axis";
+  arrow_x.children[0].material.transparent = true;
+  arrow_x.children[0].material.opacity = 0.5;
+  arrow_x.children[1].material.transparent = true;
+  arrow_x.children[1].material.opacity = 0.5;
   const arrow_y = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1, 0x00ff00, 0.5, 0.5);
   arrow_y.name = "y_axis";
   arrow_y.children[0].name = "y_axis";
   arrow_y.children[1].name = "y_axis";
+  arrow_y.children[0].material.transparent = true;
+  arrow_y.children[0].material.opacity = 0.5;
+  arrow_y.children[1].material.transparent = true;
+  arrow_y.children[1].material.opacity = 0.5;
   const arrow_z = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1, 0x0000ff, 0.5, 0.5);
   arrow_z.name = "z_axis";
   arrow_z.children[0].name = "z_axis";
   arrow_z.children[1].name = "z_axis";
+  arrow_z.children[0].material.transparent = true;
+  arrow_z.children[0].material.opacity = 0.5;
+  arrow_z.children[1].material.transparent = true;
+  arrow_z.children[1].material.opacity = 0.5;
   point.add(arrow_x);
   point.add(arrow_y);
   point.add(arrow_z);
@@ -362,19 +374,30 @@ function onMouseDown(event) {
     return;
   }
   console.log(intersects[0].object.name);
-  if (intersects[0].object.name == "x_axis") marked_vertex.marked_x = true;
-  else if (intersects[0].object.name == "y_axis") marked_vertex.marked_y = true;
-  else if (intersects[0].object.name == "z_axis") marked_vertex.marked_z = true;
-  console.log(marked_vertex.marked_x);
+  intersects[0].object.material.opacity = 1;
+  if (intersects[0].object.name == "x_axis") {
+    marked_vertex.marked_x = true;
+  } else if (intersects[0].object.name == "y_axis") {
+    marked_vertex.marked_y = true;
+  } else if (intersects[0].object.name == "z_axis") {
+    marked_vertex.marked_z = true;
+  }
 }
+
 
 function onMouseUp(event) {
   mouse_down = false;
   if (marked_vertex == undefined) return;
+  marked_vertex.children.forEach(child => {
+    child.children[0].material.opacity = 0.5;
+    child.children[1].material.opacity = 0.5;
+  });
+
   marked_vertex.marked_x = false;
   marked_vertex.marked_y = false;
   marked_vertex.marked_z = false;
 }
+
 
 function onMouseMove(event) {
   if (!mouse_down || marked_vertex == undefined ||
@@ -388,8 +411,8 @@ function onMouseMove(event) {
   if (marked_vertex.marked_x) vertex_change.x = event.movementX / 4;
   if (marked_vertex.marked_y) vertex_change.y = -(event.movementY / 4);
   if (marked_vertex.marked_z) vertex_change.z = event.movementX / 4;
-
 }
+
 
 function onWheel(event) {
   if (marked_vertex == undefined) {
