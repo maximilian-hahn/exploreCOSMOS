@@ -67,10 +67,19 @@ function init() {
       .onChange(value => vertex_change.y = value);
     vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
       .onChange(value => vertex_change.z = value);
-    vertex_folder.add({reset_orig: function () {
+    vertex_folder.add({reset_orig: function() {
       reset_vertex_gui();
       reset_orig_flag = true;
     }}, "reset_orig").name("reset to original position");
+    vertex_folder.add({reset_all: function() {
+      const current_pos = model.geometry.getAttribute('position');
+      const orig_pos = model.geometry.getAttribute('original_position');
+      for (let i = 0; i < current_pos.array.length; i++) {
+        current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
+      }
+      current_pos.needsUpdate = true;
+      model.geometry.computeBoundingSphere();
+    }}, "reset_all").name("reset all vertices");
   }
 
 
