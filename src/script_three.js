@@ -339,7 +339,7 @@ function loadMesh(vertices, indices) {
   let geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0});
+  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0, side: THREE.DoubleSide});
   let mesh = new THREE.Mesh(geometry, material);
 
   mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
