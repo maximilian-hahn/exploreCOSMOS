@@ -11,7 +11,6 @@ import * as hdf5 from 'jsfive';
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
 let axes_scene;
 let model;
-let vertex_selected = false;
 let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
 let mouse_down = false;
@@ -30,7 +29,7 @@ function init() {
   renderer.autoClear = false;
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
-  camera.position.set(0, 10, 10);
+  camera.position.set(0, 0, 80);
   console.log(camera);
 
   controls = new OrbitControls(camera, canvas);
@@ -213,7 +212,7 @@ function update() {
     if (element.name == "marked vertex") element.scale.setScalar(point_scale);
   });
 
-  if (vertex_selected || vertex_change.length() > 0) {
+  if (vertex_change.length() > 0) {
     const model_position = model.geometry.getAttribute('position');
     let model_old_pos = model_position;
     let marked_vertex_old_pos = marked_vertex.position;
@@ -234,7 +233,6 @@ function update() {
     marked_vertex.position.set(marked_vertex_old_pos.x + vertex_change.x, marked_vertex_old_pos.y + vertex_change.y, marked_vertex_old_pos.z + vertex_change.z);
 
     vertex_change.set(0, 0, 0);
-    vertex_selected = false;
   }
 
   controls.update();
@@ -347,7 +345,6 @@ function loadMesh(vertices, indices) {
 function reset_vertex_gui() {
   vertex_change.set(0, 0, 0);
   vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
-  vertex_selected = true;
 }
 
 
@@ -411,7 +408,6 @@ function onMouseMove(event) {
     return;
   }
   controls.enableRotate = false;
-  console.log(event.movementX, event.movementY);
 
   if (marked_vertex.marked_x) vertex_change.x = event.movementX / 4;
   if (marked_vertex.marked_y) vertex_change.y = -(event.movementY / 4);
@@ -425,10 +421,6 @@ function onWheel(event) {
     return;
   }
   controls.enableZoom = false;
-  if (event.deltaY >= -2 && event.deltaY <= 2) {
-    vertex_selected = true;
-    return;
-  }
   let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(mouse, camera);
   let scroll_vector = raycaster.ray.direction.multiplyScalar(event.deltaY * 0.05);
@@ -448,7 +440,19 @@ function loadInput(event) {
     let cells = f.get('shape/representer/cells');
 
     // weird I would have to do this but input has flipped dimensions?
-    let point_positions = new Float32Array(Math.flatten(Math.transpose(Math.reshape(points.value, points.shape))));
+    let position_matrix = Math.reshape(points.value, points.shape);
+
+    // subtract average position from every point to center mesh to origin of space
+    let avg_position = position_matrix.map(dim => (dim.reduce((a, b) => a + b, 0) / dim.length));
+    position_matrix = Math.transpose(position_matrix);
+    position_matrix.forEach(elem => {
+      for (let i = 0; i < elem.length; i++) {
+        elem[i] -= avg_position[i];
+      }
+    });
+
+    let point_positions = new Float32Array(Math.flatten(position_matrix));
+    
     let point_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(cells.value, cells.shape))));
     loadMesh(point_positions, point_indices);
     drawVertices(point_positions);
