@@ -10,7 +10,7 @@ import * as hdf5 from 'jsfive';
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
 let axes_scene;
-let model;
+let model, model_vertices;
 let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
 let mouse_down = false;
@@ -29,7 +29,7 @@ function init() {
   renderer.autoClear = false;
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
-  camera.position.set(0, 0, 80);
+  camera.position.set(0, 0, 150);
   console.log(camera);
 
   controls = new OrbitControls(camera, canvas);
@@ -141,7 +141,7 @@ function init() {
     model = cube;
     console.log(model);
     scene.add(cube);
-    // drawVertices(cube.geometry.attributes.position.array);
+    // drawVertices(cube);
   }*/
 
   // obj loader
@@ -310,26 +310,30 @@ function getVertices(object) {
 }
 
 function drawNearestVertex(clicked_position) {
-  const model_vertices = getVertices(model);
-  let nearestPoint = model_vertices[0];
+  let vertex_positions = getVertices(model);
+  let nearestPoint = vertex_positions[0];
   marked_vertex_index = 0;
-  let i = 0;
-  model_vertices.forEach(element => {
-    if (clicked_position.distanceTo(element) < clicked_position.distanceTo(nearestPoint)) {
-      nearestPoint = element;
+  for (let i = 0; i < vertex_positions.length; i++) {
+    if (clicked_position.distanceTo(vertex_positions[i]) < clicked_position.distanceTo(nearestPoint)) {
+      nearestPoint = vertex_positions[i];
       marked_vertex_index = i;
     }
-    i++;
-  });
+  };
+  model_vertices.geometry.attributes.color.setXYZ(marked_vertex_index, 0, 1, 0);
+  model_vertices.geometry.attributes.color.needsUpdate = true;
   updateMarkedVertex(nearestPoint);
 }
 
-function drawVertices(vertices) {
+function drawVertices(mesh) {
+  let vertices = mesh.geometry.getAttribute('position');
   let geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  let material = new THREE.PointsMaterial({color: 0xff0000});
+  geometry.setAttribute('position', vertices);
+  geometry.setAttribute('color', new THREE.BufferAttribute(Float32Array.from({length: 3 * vertices.count}, (_, i) => i % 3 == 0 ? 1 : 0), 3));
+  let material = new THREE.PointsMaterial({vertexColors: true});
   let points = new THREE.Points(geometry, material);
   points.name = "points";
+  console.log(points);
+  model_vertices = points;
   scene.add(points);
 }
 
@@ -385,14 +389,11 @@ function onMouseDown(event) {
     return;
   }
   console.log(intersects[0].object.name);
-  intersects[0].object.material.opacity = 1;
-  if (intersects[0].object.name == "x_axis") {
-    marked_vertex.marked_x = true;
-  } else if (intersects[0].object.name == "y_axis") {
-    marked_vertex.marked_y = true;
-  } else if (intersects[0].object.name == "z_axis") {
-    marked_vertex.marked_z = true;
-  }
+  intersects[0].object.parent.children[0].material.opacity = 1;
+  intersects[0].object.parent.children[1].material.opacity = 1;
+  if (intersects[0].object.name == "x_axis") marked_vertex.marked_x = true;
+  else if (intersects[0].object.name == "y_axis") marked_vertex.marked_y = true;
+  else if (intersects[0].object.name == "z_axis") marked_vertex.marked_z = true;
 }
 
 
@@ -464,7 +465,7 @@ function loadInput(event) {
     
     let point_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(cells.value, cells.shape))));
     loadMesh(point_positions, point_indices);
-    drawVertices(point_positions);
+    drawVertices(model);
   }
   reader.readAsArrayBuffer(file);
 }
