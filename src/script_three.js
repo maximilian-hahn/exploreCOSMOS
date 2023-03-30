@@ -17,6 +17,8 @@ let mouse_down = false;
 
 // gui attributes
 let point_scale = 10;
+let variance_scale = 0;
+let variance_changed = false;
 let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
@@ -28,7 +30,7 @@ function init() {
   renderer = new THREE.WebGLRenderer({canvas});
   renderer.autoClear = false;
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100000);
   camera.position.set(0, 0, 150);
   console.log(camera);
 
@@ -71,7 +73,11 @@ function init() {
       model.visible = true;
       model_vertices.visible = true;
     }}, "show_template").name("switch between template and model");
+
+    gui.add({variance_scale}, "variance_scale", -0.1, 0.1, 0.001).name("variance scale")
+      .onChange(value => {variance_scale = value; variance_changed = true;});
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
+
     vertex_folder = gui.addFolder('change vertex position');
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
       .onChange(value => vertex_change.x = value);
@@ -234,6 +240,11 @@ function update() {
     if (element.name == "marked vertex") element.scale.setScalar(point_scale);
   });
 
+  if (variance_changed) {
+    computeAndShowPosterior();
+    variance_changed = false;
+  }
+
   if (vertex_change.length() > 0) {
     const model_position = model.geometry.getAttribute('position');
     let model_old_pos = model_position;
@@ -345,6 +356,8 @@ function drawVertices(mesh, name) {
   let material = new THREE.PointsMaterial({vertexColors: true});
   let points = new THREE.Points(geometry, material);
   points.name = name;
+  if (model_vertices != undefined)
+    points.visible = model_vertices.visible;
   console.log(points);
   model_vertices = points;
   scene.add(points);
@@ -354,7 +367,7 @@ function loadMesh(vertices, indices, name) {
   let geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0, side: THREE.DoubleSide});
+  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0});  // side: THREE.DoubleSide to turn off backface culling
   let mesh = new THREE.Mesh(geometry, material);
 
   mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
@@ -378,6 +391,32 @@ function centerMeshPosition(position_matrix) {
     }
   });
   return new Float32Array(Math.flatten(position_matrix));
+}
+
+function computeAndShowPosterior() {
+  let point_indices = model.userData.point_indices;
+  let mean = model.userData.mean;
+  let W = model.userData.W;
+  let variance = model.userData.variance;
+  let z = model.userData.z;
+  z = Math.subset(z, Math.index(0), variance_scale * variance.get([0]));
+
+  let sample_model_positions = Math.add(Math.multiply(W, z), mean);  // W*z*variance+mean
+
+  // TODO: fix centering with centerMeshPosition
+  // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), sample_model_positions).toArray(), template_points.shape);
+  // point_positions = centerMeshPosition(position_matrix);
+
+  scene.remove(scene.getObjectByName("model"));
+  scene.remove(scene.getObjectByName("points"));
+  loadMesh(new Float32Array(sample_model_positions.toArray()), point_indices, "model");
+  drawVertices(model, "points");
+  
+  model.userData.mean = mean;
+  model.userData.W = W;
+  model.userData.variance = variance;
+  model.userData.z = z;
+  model.userData.point_indices = point_indices;
 }
 
 function reset_vertex_gui() {
@@ -489,16 +528,21 @@ function loadInput(event) {
 
     // loading prior model
     // math based on 12.2 Probabilistic PCA p.573 TODO: book name
-    let prior_mean = f.get('shape/model/mean'); // coordinates of prior model
-    let W = f.get('shape/model/pcaBasis');      // matrix containing principal components
+    let mean = Math.matrix(f.get('shape/model/mean').value);            // mean of prior model
+    let pca_basis = f.get('shape/model/pcaBasis');
+    let W = Math.matrix(Math.reshape(pca_basis.value, pca_basis.shape)); // matrix containing principal components
+    let variance = Math.matrix(f.get('shape/model/pcaVariance').value);       // variance of above matrix; earlier components have a higher variance
+    let z = Math.zeros(Math.size(variance));
+    z = Math.subset(z, Math.index(0), 0.05 * variance.get([0]));
+    z = Math.subset(z, Math.index(1), 0.05 * variance.get([1]));
 
-    // TODO: fix centering with centerMeshPosition
-    // position_matrix = Math.reshape(prior_mean.value, template_points.shape);
-    // point_positions = centerMeshPosition(position_matrix);
+    model.userData.point_indices = point_indices;
+    model.userData.mean = mean;
+    model.userData.W = W;
+    model.userData.variance = variance;
+    model.userData.z = z;
 
-    loadMesh(new Float32Array(prior_mean.value), point_indices, "model");
-    drawVertices(model, "points");
-
+    computeAndShowPosterior();
   }
   reader.readAsArrayBuffer(file);
 }
