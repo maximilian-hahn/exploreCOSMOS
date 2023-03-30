@@ -6,6 +6,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as hdf5 from 'jsfive';
+import { variance } from 'mathjs';
 
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
@@ -19,6 +20,7 @@ let mouse_down = false;
 let point_scale = 10;
 let variance_scale = 0;
 let variance_changed = false;
+let pca_index = 0;
 let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
@@ -73,12 +75,28 @@ function init() {
       model.visible = true;
       model_vertices.visible = true;
     }}, "show_template").name("switch between template and model");
-
-    gui.add({variance_scale}, "variance_scale", -0.1, 0.1, 0.001).name("variance scale")
-      .onChange(value => {variance_scale = value; variance_changed = true;});
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
 
-    vertex_folder = gui.addFolder('change vertex position');
+    let variance_folder = gui.addFolder("pca variance");
+    let controller_variance_scale = variance_folder.add({variance_scale}, "variance_scale", -0.1, 0.1, 0.001).name("variance scale")
+      .onChange(value => {
+        variance_scale = value;
+        variance_changed = true;
+      });
+    variance_folder.add({pca_index}, "pca_index", 0, 20, 1).name("pca index")
+      .onChange(value => {
+        pca_index = value;
+        controller_variance_scale.setValue(Math.subset(model.userData.z, Math.index(value)));
+      });
+    variance_folder.add({reset_variance_scale: function() {
+      model.userData.z = Math.zeros(Math.size(model.userData.z));
+      variance_scale = 0;
+      pca_index = 0;
+      variance_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
+      variance_changed = true;
+    }}, "reset_variance_scale").name("reset variance scale");
+
+    vertex_folder = gui.addFolder("change vertex position");
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
       .onChange(value => vertex_change.x = value);
     vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change vertex y")
@@ -358,7 +376,7 @@ function drawVertices(mesh, name) {
   points.name = name;
   if (model_vertices != undefined)
     points.visible = model_vertices.visible;
-  console.log(points);
+  // console.log(points);
   model_vertices = points;
   scene.add(points);
 }
@@ -376,7 +394,7 @@ function loadMesh(vertices, indices, name) {
   const position = mesh.geometry.getAttribute('position');
   mesh.geometry.attributes.original_position = position.clone();
   mesh.name = name;
-  console.log(mesh);
+  // console.log(mesh);
   model = mesh;
   scene.add(mesh);
 }
@@ -399,9 +417,9 @@ function computeAndShowPosterior() {
   let W = model.userData.W;
   let variance = model.userData.variance;
   let z = model.userData.z;
-  z = Math.subset(z, Math.index(0), variance_scale * variance.get([0]));
+  z = Math.subset(z, Math.index(pca_index), variance_scale);
 
-  let sample_model_positions = Math.add(Math.multiply(W, z), mean);  // W*z*variance+mean
+  let sample_model_positions = Math.add(Math.multiply(W, Math.dotMultiply(z, variance)), mean);  // W*z*variance+mean
 
   // TODO: fix centering with centerMeshPosition
   // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), sample_model_positions).toArray(), template_points.shape);
@@ -532,9 +550,7 @@ function loadInput(event) {
     let pca_basis = f.get('shape/model/pcaBasis');
     let W = Math.matrix(Math.reshape(pca_basis.value, pca_basis.shape)); // matrix containing principal components
     let variance = Math.matrix(f.get('shape/model/pcaVariance').value);       // variance of above matrix; earlier components have a higher variance
-    let z = Math.zeros(Math.size(variance));
-    z = Math.subset(z, Math.index(0), 0.05 * variance.get([0]));
-    z = Math.subset(z, Math.index(1), 0.05 * variance.get([1]));
+    let z = Math.zeros(Math.size(variance));  // parameter to scale variance
 
     model.userData.point_indices = point_indices;
     model.userData.mean = mean;
