@@ -6,7 +6,6 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as hdf5 from 'jsfive';
-import { variance } from 'mathjs';
 
 
 let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
@@ -413,21 +412,39 @@ function centerMeshPosition(position_matrix) {
 
 function computeAndShowPosterior() {
   let point_indices = model.userData.point_indices;
-  let mean = model.userData.mean;
-  let W = model.userData.W;
-  let variance = model.userData.variance;
-  let z = model.userData.z;
+  let mean = model.userData.mean; // mean of prior model
+  let W = model.userData.W; // matrix containing principal components
+  let variance = model.userData.variance; // variance of above matrix; earlier components have a higher variance
+  let z = model.userData.z; // parameter to scale variance
   z = Math.subset(z, Math.index(pca_index), variance_scale);
 
-  let sample_model_positions = Math.add(Math.multiply(W, Math.dotMultiply(z, variance)), mean);  // W*z*variance+mean
+  // math based on 12.2 Probabilistic PCA p.573 TODO: book name
+  let x = Math.add(Math.multiply(W, Math.dotMultiply(z, variance)), mean);  // x = W * z * variance + mean
+  console.log(x); // dim: 5265 ~ 1
+
+  // computation for posterior mean
+  /*
+  let WT = Math.transpose(W);
+  console.log(WT);  // dim: 199 ~ 5265
+  let M = Math.multiply(WT, W);
+  M = Math.add(M, Math.multiply(Math.dot(variance, variance), Math.identity(Math.size(M)))); // M = W^T * W + variance^2 * I
+  console.log(M); // dim: 199 ~ 199
+  let M_inverse = Math.inv(M);
+  // let posterior_mean = Math.multiply(Math.multiply(M_inverse, WT), Math.subtract(x, mean)); // M^-1 * W^T * (x - mean)
+  // new formula: mean + W * M^-1 * W^T * (x - mean)
+  let WM = Math.multiply(W, M_inverse);
+  console.log(WM);
+  let posterior_mean = Math.multiply(Math.multiply(WM, WT), Math.subtract(x, mean));
+  console.log(posterior_mean);  // TODO: wrong dimension, 199 when it should have 5265
+  posterior_mean = Math.add(mean, posterior_mean);*/
 
   // TODO: fix centering with centerMeshPosition
-  // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), sample_model_positions).toArray(), template_points.shape);
+  // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), x).toArray(), template_points.shape);
   // point_positions = centerMeshPosition(position_matrix);
 
   scene.remove(scene.getObjectByName("model"));
   scene.remove(scene.getObjectByName("points"));
-  loadMesh(new Float32Array(sample_model_positions.toArray()), point_indices, "model");
+  loadMesh(new Float32Array(x.toArray()), point_indices, "model");
   drawVertices(model, "points");
   
   model.userData.mean = mean;
@@ -545,12 +562,11 @@ function loadInput(event) {
     model_vertices.visible = false;
 
     // loading prior model
-    // math based on 12.2 Probabilistic PCA p.573 TODO: book name
-    let mean = Math.matrix(f.get('shape/model/mean').value);            // mean of prior model
+    let mean = Math.matrix(f.get('shape/model/mean').value);
     let pca_basis = f.get('shape/model/pcaBasis');
-    let W = Math.matrix(Math.reshape(pca_basis.value, pca_basis.shape)); // matrix containing principal components
-    let variance = Math.matrix(f.get('shape/model/pcaVariance').value);       // variance of above matrix; earlier components have a higher variance
-    let z = Math.zeros(Math.size(variance));  // parameter to scale variance
+    let W = Math.matrix(Math.reshape(pca_basis.value, pca_basis.shape));
+    let variance = Math.matrix(f.get('shape/model/pcaVariance').value);
+    let z = Math.zeros(Math.size(variance));
 
     model.userData.point_indices = point_indices;
     model.userData.mean = mean;
