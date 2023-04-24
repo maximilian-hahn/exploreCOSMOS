@@ -4,6 +4,7 @@
     "build": "webpack"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^4.4.0",
     "h5wasm": "^0.4.9",
     "jsfive": "^0.3.13",
     "mathjs": "^11.5.0",
