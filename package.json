@@ -8,6 +8,8 @@
     "h5wasm": "^0.4.9",
     "jsfive": "^0.3.13",
     "mathjs": "^11.5.0",
+    "ml-matrix": "^6.10.4",
+    "path-browserify": "^1.0.1",
     "three": "^0.146.0"
   },
   "devDependencies": {

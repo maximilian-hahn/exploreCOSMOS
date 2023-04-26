@@ -1,27 +1,21 @@
 import './style.css';
+import {initGui, point_scale, variance_changed, vertex_change, reset_vertex_gui} from './gui.js';
+import {loadValues, computePosterior} from './computation.js';
 import * as THREE from 'three';
 import * as Math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as hdf5 from 'jsfive';
 import * as tf from '@tensorflow/tfjs';
 
-
-let canvas, renderer, camera, controls, scene, gui, vertex_folder, raycaster;
+let canvas, renderer, camera, controls, scene, raycaster;
 let axes_scene;
 let model, model_vertices;
+let landmarks = new Array;
 let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
 let mouse_down = false;
-
-// gui attributes
-let point_scale = 10;
-let variance_scale = 0;
-let variance_changed = false;
-let pca_index = 0;
-let vertex_change = new THREE.Vector3(0, 0, 0);
 
 init();
 animate();
@@ -50,74 +44,7 @@ function init() {
   const axes_helper = new THREE.AxesHelper(500);
   axes_scene.add(axes_helper);
 
-  // gui stuff
-  {
-    gui = new GUI();
-    gui.addColor({color: '#000000'}, 'color')
-      .name('model color')
-      .onChange(function(e) {
-        model.material.color = new THREE.Color(e);
-    });
-    gui.add({show_vertices: function() {
-      let points = scene.getObjectByName("points");
-      points.visible = !points.visible;
-    }}, "show_vertices").name("show/hide vertices");
-    gui.add({show_template: function() {
-      model.visible = false;
-      model_vertices.visible = false;
-      if (model.name == "template_model") {
-        model = scene.getObjectByName("model");
-        model_vertices = scene.getObjectByName("points");
-      } else if (model.name == "model") {
-        model = scene.getObjectByName("template_model");
-        model_vertices = scene.getObjectByName("template_points");
-      }
-      model.visible = true;
-      model_vertices.visible = true;
-    }}, "show_template").name("switch between template and model");
-    gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
-    
-    gui.add({posterior: computeAndShowPosterior}, "posterior").name("compute posterior");
-    let variance_folder = gui.addFolder("pca variance");
-    let controller_variance_scale = variance_folder.add({variance_scale}, "variance_scale", -0.1, 0.1, 0.001).name("variance scale")
-      .onChange(value => {
-        variance_scale = value;
-        variance_changed = true;
-      });
-    variance_folder.add({pca_index}, "pca_index", 0, 20, 1).name("pca index")
-      .onChange(value => {
-        pca_index = value;
-        controller_variance_scale.setValue(z.arraySync()[pca_index]);
-      });
-    variance_folder.add({reset_variance_scale: function() {
-      model.userData.z = tf.zeros(model.userData.z.shape);
-      variance_scale = 0;
-      pca_index = 0;
-      variance_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
-      variance_changed = true;
-    }}, "reset_variance_scale").name("reset variance scale");
-
-    vertex_folder = gui.addFolder("change vertex position");
-    vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
-      .onChange(value => vertex_change.x = value);
-    vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change vertex y")
-      .onChange(value => vertex_change.y = value);
-    vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
-      .onChange(value => vertex_change.z = value);
-    vertex_folder.add({reset_orig: function() {
-      reset_vertex_gui();
-      reset_orig_flag = true;
-    }}, "reset_orig").name("reset to original position");
-    vertex_folder.add({reset_all: function() {
-      const current_pos = model.geometry.getAttribute('position');
-      const orig_pos = model.geometry.getAttribute('original_position');
-      for (let i = 0; i < current_pos.array.length; i++) {
-        current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
-      }
-      current_pos.needsUpdate = true;
-      model.geometry.computeBoundingSphere();
-    }}, "reset_all").name("reset all vertices");
-  }
+  initGui();
 
 
   // hemisphere light
@@ -333,6 +260,17 @@ function createPoint(position) {
   return point;
 }
 
+function createLandmark(position) {
+  let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.05, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
+  landmark.position.set(...position);
+  landmark.name = "landmark: " + position;
+  console.log(landmark.name); // TODO
+
+  scene.add(landmark);
+  landmarks.push(landmark);
+  return landmark;
+}
+
 function updateMarkedVertex(position) {
   if (marked_vertex == undefined)
     marked_vertex = createPoint(position);
@@ -395,9 +333,23 @@ function loadMesh(vertices, indices, name) {
   const position = mesh.geometry.getAttribute('position');
   mesh.geometry.attributes.original_position = position.clone();
   mesh.name = name;
-  // console.log(mesh);
+  console.log(name + ": ");
+  console.log(mesh);
   model = mesh;
   scene.add(mesh);
+}
+
+export function computeAndShowPosterior() {
+  let posterior_mean = computePosterior(model);
+
+  let point_indices = model.userData.point_indices;
+
+  scene.remove(scene.getObjectByName("model"));
+  scene.remove(scene.getObjectByName("points"));
+  loadMesh(new Float32Array(posterior_mean.arraySync()), point_indices, "model");
+  drawVertices(model, "points");
+
+  model.userData.point_indices = point_indices;
 }
 
 function centerMeshPosition(position_matrix) {
@@ -410,96 +362,6 @@ function centerMeshPosition(position_matrix) {
     }
   });
   return new Float32Array(Math.flatten(position_matrix));
-}
-
-function computeAndShowPosterior() {
-  let point_indices = model.userData.point_indices;
-  let mean = model.userData.mean; // mean of prior model
-  let Q = model.userData.Q; // matrix containing principal components
-  let variance = model.userData.variance; // variance of above matrix; earlier components have a higher variance
-  let z = tf.buffer(model.userData.z.shape, model.userData.z.dtype, model.userData.z.dataSync()); // parameter to scale variance
-  z.set(variance_scale, pca_index);
-  z = z.toTensor();
-
-  // math based on 12.2 Probabilistic PCA p.573 TODO: book name
-  let s = mean.add(Q.dot(z.mul(variance)));  // x = W * z * variance + mean
-  // s.print(); // dim: 5265 ~ 1
-
-
-  // get changed positions of model aka observations
-  let changed_positions = new Array;
-  let mean_g = new Array;
-  let Q_g = new Array;
-  const model_position = model.geometry.getAttribute('position').array;
-  const model_old_pos = model.geometry.getAttribute('original_position').array;
-  for (let i = 0; i < model_position.length; i+=3) {
-    if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
-      changed_positions.push(model_position[i]);
-      changed_positions.push(model_position[i+1]);
-      changed_positions.push(model_position[i+2]);
-      mean_g.push(mean.arraySync()[i]);
-      mean_g.push(mean.arraySync()[i+1]);
-      mean_g.push(mean.arraySync()[i+2]);
-      Q_g.push(Q.arraySync()[i]);
-      Q_g.push(Q.arraySync()[i+1]);
-      Q_g.push(Q.arraySync()[i+2]);
-    }
-  }
-  // console.log("s_g: " + changed_positions);
-  // console.log("mean_g: " + mean_g);
-  // console.log("Q_g: " + Q_g);
-
-  let s_g = tf.tensor(changed_positions);
-  mean_g = tf.tensor(mean_g);
-  Q_g = tf.tensor(Q_g);
-  // console.log(Q_g);
-
-
-  // computation for posterior mean
-  
-  // let WT = W.transpose();
-  // WT.print();  // dim: 199 ~ 5265
-  // let M = WT.matMul(W);
-  // M = M.add(variance.dot(tf.eye(...M.shape))); // M = W^T * W + variance * I
-  // console.log(M); // dim: 199 ~ 199
-  // let M_inverse = tf.tensor(Math.inv(Math.matrix(M.arraySync())).toArray());
-  // M_inverse.print();
-  // let posterior_mean = M_inverse.matMul(WT).dot(x.sub(mean)); // M^-1 * W^T * (x - mean)
-  // console.log(posterior_mean);
-  // new formula: mean + W * M^-1 * W^T * (x - mean)
-  // let WM = Math.multiply(W, M_inverse);
-  // console.log(WM);
-  // let posterior_mean = Math.multiply(Math.multiply(WM, WT), Math.subtract(x, mean));
-  // console.log(posterior_mean);  // TODO: wrong dimension, 199 when it should have 5265
-  // posterior_mean = Math.add(mean, posterior_mean);
-
-  let M_g = Q_g.transpose().matMul(Q_g);
-  let M = M_g.add(tf.eye(...M_g.shape).dot(variance));
-  console.log(M);
-  console.log(M.arraySync());
-  let M_inverse = tf.tensor(Math.inv(Math.matrix(M.arraySync())).toArray());
-  let posterior_mean = mean.add(Q.matMul(M_inverse).matMul(Q_g.transpose().dot(s_g.sub(mean_g))));
-  // console.log(posterior_mean);
-
-  // TODO: fix centering with centerMeshPosition
-  // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), x).toArray(), template_points.shape);
-  // point_positions = centerMeshPosition(position_matrix);
-
-  scene.remove(scene.getObjectByName("model"));
-  scene.remove(scene.getObjectByName("points"));
-  loadMesh(new Float32Array(s.arraySync()), point_indices, "model");
-  drawVertices(model, "points");
-  
-  model.userData.mean = mean;
-  model.userData.Q = Q;
-  model.userData.variance = variance;
-  model.userData.z = z;
-  model.userData.point_indices = point_indices;
-}
-
-function reset_vertex_gui() {
-  vertex_change.set(0, 0, 0);
-  vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
 }
 
 
@@ -604,21 +466,12 @@ function loadInput(event) {
     model.visible = false;
     model_vertices.visible = false;
 
-    // loading prior model
-    let mean = tf.tensor(f.get('shape/model/mean').value);
-    let pca_basis = f.get('shape/model/pcaBasis');
-    let Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
-    let variance = tf.tensor(f.get('shape/model/pcaVariance').value);
-    let z = tf.zeros(variance.shape);
+    // load prior values for posterior computation
+    loadValues(f);
 
-    loadMesh(new Float32Array(mean.arraySync()), point_indices, "model");
+    loadMesh(new Float32Array(f.get('shape/model/mean').value), point_indices, "model");
     drawVertices(model, "points");
-
     model.userData.point_indices = point_indices;
-    model.userData.mean = mean;
-    model.userData.Q = Q;
-    model.userData.variance = variance;
-    model.userData.z = z;
   }
   reader.readAsArrayBuffer(file);
 }
