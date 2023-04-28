@@ -1,61 +1,72 @@
 import {variance_scale, pca_index} from './gui.js';
 import * as tf from '@tensorflow/tfjs';
-import { Matrix, pseudoInverse, determinant } from 'ml-matrix';
 import * as Math from 'mathjs';
 
 let mean;       // mean of prior model
 let Q;          // matrix containing principal components
-let variance;   // variance of above matrix; earlier components have a higher variance
+let variance;   // variance or sigma^2 of above matrix; earlier components have a higher variance
 let z;          // parameter to scale variance
+let alpha;      // coefficients that follow a standard normal distribution
 
 export function loadValues(file) {
     mean = tf.tensor(file.get('shape/model/mean').value);
     let pca_basis = file.get('shape/model/pcaBasis');
     Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
     variance = tf.tensor(file.get('shape/model/pcaVariance').value);
-    z = tf.zeros(variance.shape);
+    z = tf.ones(variance.shape);
+    alpha = new Array;
+    for (let i = 0; i < variance.shape; i++) {
+        alpha.push(normalDistribution());
+    }
+    alpha = tf.tensor(alpha);
+    console.log("alpha: ");
+    console.log(alpha.arraySync());
+    z = alpha;
 }
 
 // calculate the posterior mean of the given model and add it to the scene
 export function computePosterior(model) {
-    z = tf.buffer(z.shape, z.dtype, z.dataSync());
-    z.set(variance_scale, pca_index);
-    z = z.toTensor();
+    // z = tf.buffer(z.shape, z.dtype, z.dataSync());
+    // z.set(variance_scale, pca_index);
+    // z = z.toTensor();
   
-    // math based on 12.2 Probabilistic PCA p.573 TODO: book name
-    let s = mean.add(Q.dot(z.mul(variance)));  // x = W * z * variance + mean
-    // s.print(); // dim: 5265 ~ 1
-  
-  
-    // get changed positions of model aka observations
-    let changed_positions = new Array;
-    let mean_g = new Array;
-    let Q_g = new Array;
+    // get changed positions of model aka observations and update the mean
+    let changed_indices = new Array;
     const model_position = model.geometry.getAttribute('position').array;
     const model_old_pos = model.geometry.getAttribute('original_position').array;
+    mean = model_position;
     for (let i = 0; i < model_position.length; i+=3) {
         if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
-            changed_positions.push(model_position[i]);
-            changed_positions.push(model_position[i+1]);
-            changed_positions.push(model_position[i+2]);
-            mean_g.push(mean.arraySync()[i]);
-            mean_g.push(mean.arraySync()[i+1]);
-            mean_g.push(mean.arraySync()[i+2]);
-            Q_g.push(Q.arraySync()[i]);
-            Q_g.push(Q.arraySync()[i+1]);
-            Q_g.push(Q.arraySync()[i+2]);
+            changed_indices.push(i);
+            changed_indices.push(i+1);
+            changed_indices.push(i+2);
         }
     }
-    // console.log("s_g: " + changed_positions);
+    mean = tf.tensor(mean);
+
+    // math based on paper: Medical Image Analysis 17 (2013) 959–973
+    let s = mean.add(Q.dot(z.mul(variance)));  // x = W * z * variance + mean
+    // s.print(); // dim: 5265 ~ 1
+
+    let s_g = new Array;
+    let mean_g = new Array;
+    let Q_g = new Array;
+    changed_indices.forEach(changed_index => {
+        s_g.push(s.arraySync()[changed_index]);
+        mean_g.push(mean.arraySync()[changed_index]);
+        Q_g.push(Q.arraySync()[changed_index]);
+    });
+    // console.log("s_g: " + s_g);
     // console.log("mean_g: " + mean_g);
     // console.log("Q_g: " + Q_g);
-  
-    let s_g = tf.tensor(changed_positions);
-    // s_g = s_g.mul(500);
+
+    s_g = tf.tensor(s_g);
     mean_g = tf.tensor(mean_g);
     Q_g = tf.tensor(Q_g);
-    console.log("Q_g: ");
-    console.log(Q_g.arraySync());
+
+    // console.log("Q_g: ");
+    // console.log(Q_g.arraySync());
+    let Q_gT = Q_g.transpose();
   
   
     // computation for posterior mean
@@ -76,33 +87,31 @@ export function computePosterior(model) {
     // console.log(posterior_mean);  // TODO: wrong dimension, 199 when it should have 5265
     // posterior_mean = Math.add(mean, posterior_mean);
    
-    let M_g = Q_g.transpose().matMul(Q_g);
-    let [_, n] = M_g.shape;
-    let M = M_g.add(tf.diag(variance));
+    let M = Q_gT.matMul(Q_g).add(tf.diag(variance));
     // console.log(JSON.stringify(M.arraySync()));
 
-    console.log("M: ");
-    console.log(M.arraySync());
+    // console.log("M: ");
+    // console.log(M.arraySync());
 
-    // calculating pseudo inverse is not implemented in tensorflow.js -> ml-matrix
+    // calculating pseudo inverse is not implemented in tensorflow.js -> Math.js
     // M = new Matrix(M.arraySync());
     // console.log("det: " + determinant(M));
     // M = inverse(M);
     M = Math.matrix(M.arraySync());
-    console.log("det: " + Math.det(M));
-    M = Math.inv(M);
+    // console.log("det: " + Math.det(M));
+    let M_inverse = Math.inv(M);
     // console.log("det: " + det(M));
     // M = invertMatrix(M);
     // M = inverse(M.arraySync());
 
-    let M_inverse = tf.tensor(M._data);
-    console.log("M_inverse: ");
-    console.log(M_inverse.arraySync());
-    let posterior_mean = mean.add(Q.matMul(M_inverse).dot(Q_g.transpose().dot(s_g.sub(mean_g))));
-    console.log("mean: ");
-    console.log(JSON.stringify(mean.arraySync()));
-    console.log("posterior_mean: ");
-    console.log(JSON.stringify(posterior_mean.arraySync()));
+    M_inverse = tf.tensor(M_inverse._data);
+    // console.log("M_inverse: ");
+    // console.log(M_inverse.arraySync());
+    let posterior_mean = mean.add(Q.dot(M_inverse.dot(Q_gT.dot(s_g.sub(mean_g)))));
+    // console.log("mean: ");
+    // console.log(JSON.stringify(mean.arraySync()));
+    // console.log("posterior_mean: ");
+    // console.log(JSON.stringify(posterior_mean.arraySync()));
 
     return posterior_mean;
   
@@ -110,6 +119,16 @@ export function computePosterior(model) {
     // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), x).toArray(), template_points.shape);
     // point_positions = centerMeshPosition(position_matrix);
   
+}
+
+// src: https://codepen.io/Sire404/pen/dyvYPBM
+// Standard Normal variate using Box-Muller transform.
+function normalDistribution(mean=0, stdev=1) {
+    let u = 1 - Math.random(); //Converting [0,1) to (0,1)
+    let v = Math.random();
+    let z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.pi * v );
+    // Transform to the desired mean and standard deviation:
+    return z * stdev + mean;
 }
 
 

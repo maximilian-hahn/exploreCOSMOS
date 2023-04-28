@@ -1,4 +1,4 @@
-import {computeAndShowPosterior} from './script.js';
+import {computeAndShowPosterior, switchModels, scene} from './script.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as THREE from 'three';
 
@@ -21,19 +21,8 @@ export function initGui() {
         let points = scene.getObjectByName("points");
         points.visible = !points.visible;
     }}, "show_vertices").name("show/hide vertices");
-    gui.add({show_template: function() {
-        model.visible = false;
-        model_vertices.visible = false;
-        if (model.name == "template_model") {
-        model = scene.getObjectByName("model");
-        model_vertices = scene.getObjectByName("points");
-        } else if (model.name == "model") {
-        model = scene.getObjectByName("template_model");
-        model_vertices = scene.getObjectByName("template_points");
-        }
-        model.visible = true;
-        model_vertices.visible = true;
-    }}, "show_template").name("switch between template and model");
+
+    gui.add({show_template: switchModels}, "show_template").name("switch between template and model");
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     
     gui.add({posterior: function() {
@@ -42,8 +31,8 @@ export function initGui() {
 
     gui.add({landmark: function() {
         if (marked_vertex == undefined) {
-        console.log("mark a vertex to create a landmark for it");
-        return;
+            console.log("mark a vertex to create a landmark for it");
+            return;
         }
         landmarks.forEach(landmark => {
         if (landmark.position == position)

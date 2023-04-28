@@ -9,9 +9,10 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 import * as hdf5 from 'jsfive';
 import * as tf from '@tensorflow/tfjs';
 
-let canvas, renderer, camera, controls, scene, raycaster;
+export let scene;
+export let model, model_vertices;
+let canvas, renderer, camera, controls, raycaster;
 let axes_scene;
-let model, model_vertices;
 let landmarks = new Array;
 let reset_orig_flag = false;
 let marked_vertex, marked_vertex_index;
@@ -327,7 +328,7 @@ function loadMesh(vertices, indices, name) {
   let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0});  // side: THREE.DoubleSide to turn off backface culling
   let mesh = new THREE.Mesh(geometry, material);
 
-  mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
+  // mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
   mesh.geometry.computeVertexNormals();
   
   const position = mesh.geometry.getAttribute('position');
@@ -362,6 +363,20 @@ function centerMeshPosition(position_matrix) {
     }
   });
   return new Float32Array(Math.flatten(position_matrix));
+}
+
+export function switchModels() {
+  model.visible = false;
+  model_vertices.visible = false;
+  if (model.name == "template_model") {
+      model = scene.getObjectByName("model");
+      model_vertices = scene.getObjectByName("points");
+  } else if (model.name == "model") {
+      model = scene.getObjectByName("template_model");
+      model_vertices = scene.getObjectByName("template_points");
+  }
+  model.visible = true;
+  model_vertices.visible = true;
 }
 
 
