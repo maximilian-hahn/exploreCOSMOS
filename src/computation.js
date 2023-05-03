@@ -5,31 +5,48 @@ import * as Math from 'mathjs';
 let mean;       // mean of prior model
 let Q;          // matrix containing principal components
 let variance;   // variance or sigma^2 of above matrix; earlier components have a higher variance
-let z;          // parameter to scale variance
-let alpha;      // coefficients that follow a standard normal distribution
+export let alpha;      // coefficients for principal component matrix Q that follow a standard normal distribution
+let template_positions;
 
 export function loadValues(file) {
     mean = tf.tensor(file.get('shape/model/mean').value);
     let pca_basis = file.get('shape/model/pcaBasis');
     Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
+    template_positions = tf.tensor(file.get('shape/representer/points').value);
+    
+    // console.log("Q before : ");
+    // console.log(Q.arraySync());
+    // // add mean to every Q column
+    // let Q_tmp = Q.transpose();
+    // Q = Q_tmp.add(mean);
+    // Q = Q.transpose();
+    // console.log("Q after: ");
+    // console.log(Q.arraySync());
+    
     variance = tf.tensor(file.get('shape/model/pcaVariance').value);
-    z = tf.ones(variance.shape);
+    generateAlpha();
+    console.log("alpha: ");
+    console.log(alpha.arraySync());
+}
+
+export function generateAlpha() {
     alpha = new Array;
     for (let i = 0; i < variance.shape; i++) {
         alpha.push(normalDistribution());
     }
     alpha = tf.tensor(alpha);
-    console.log("alpha: ");
-    console.log(alpha.arraySync());
-    z = alpha;
+}
+
+export function updateAlpha() {
+    alpha = tf.buffer(alpha.shape, alpha.dtype, alpha.dataSync());
+    alpha.set(variance_scale, pca_index);
+    alpha = alpha.toTensor();
+    let s = mean.add(Q.dot(alpha.mul(variance).mul(0.005)));
+    return s.arraySync();
 }
 
 // calculate the posterior mean of the given model and add it to the scene
 export function computePosterior(model) {
-    // z = tf.buffer(z.shape, z.dtype, z.dataSync());
-    // z.set(variance_scale, pca_index);
-    // z = z.toTensor();
-  
     // get changed positions of model aka observations and update the mean
     let changed_indices = new Array;
     const model_position = model.geometry.getAttribute('position').array;
@@ -41,13 +58,23 @@ export function computePosterior(model) {
             changed_indices.push(i+1);
             changed_indices.push(i+2);
         }
+        model.userData.landmarks.forEach(landmark => {
+            if (landmark.position[0] == model_position[i] || landmark.position[1] == model_position[i+1] || landmark.position[2] == model_position[i+2]) {
+                changed_indices.push(i);
+                changed_indices.push(i+1);
+                changed_indices.push(i+2);
+                return;
+            }
+        });
     }
     mean = tf.tensor(mean);
+    // mean = mean.sub(template_positions);    // mean should be a deformation field?
 
     // math based on paper: Medical Image Analysis 17 (2013) 959–973
-    let s = mean.add(Q.dot(z.mul(variance)));  // x = W * z * variance + mean
+    let s = mean.add(Q.dot(alpha));  // s = mean + Q * alpha
     // s.print(); // dim: 5265 ~ 1
 
+    // select those elements and rows that correspond to the changed positions (observations)
     let s_g = new Array;
     let mean_g = new Array;
     let Q_g = new Array;
@@ -107,13 +134,14 @@ export function computePosterior(model) {
     M_inverse = tf.tensor(M_inverse._data);
     // console.log("M_inverse: ");
     // console.log(M_inverse.arraySync());
+    // mean = mean.add(template_positions);
     let posterior_mean = mean.add(Q.dot(M_inverse.dot(Q_gT.dot(s_g.sub(mean_g)))));
-    // console.log("mean: ");
-    // console.log(JSON.stringify(mean.arraySync()));
-    // console.log("posterior_mean: ");
-    // console.log(JSON.stringify(posterior_mean.arraySync()));
+    console.log("mean: ");
+    console.log(JSON.stringify(mean.arraySync()));
+    console.log("posterior_mean: ");
+    console.log(JSON.stringify(posterior_mean.arraySync()));
 
-    return posterior_mean;
+    return posterior_mean.arraySync();
   
     // TODO: fix centering with centerMeshPosition
     // position_matrix = Math.reshape(Math.subtract(Math.matrix(template_points.value), x).toArray(), template_points.shape);

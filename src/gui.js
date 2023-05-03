@@ -1,10 +1,10 @@
-import {computeAndShowPosterior, switchModels, scene} from './script.js';
+import {updateMesh, switchModels, scene, model, handleLandmarks} from './script.js';
+import { alpha, generateAlpha, updateAlpha, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as THREE from 'three';
 
 export let point_scale = 10;
 export let variance_scale = 0;
-export let variance_changed = false;
 export let vertex_change = new THREE.Vector3(0, 0, 0);
 export let pca_index = 0;
 
@@ -26,40 +26,27 @@ export function initGui() {
     gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
     
     gui.add({posterior: function() {
-        computeAndShowPosterior();
+        updateMesh(computePosterior(model));
     }}, "posterior").name("compute posterior");
 
-    gui.add({landmark: function() {
-        if (marked_vertex == undefined) {
-            console.log("mark a vertex to create a landmark for it");
-            return;
-        }
-        landmarks.forEach(landmark => {
-        if (landmark.position == position)
-            scene.remove(landmark);
-            return;
-        });
-        // TODO: test; does the above return work in preventing next line?
-        createLandmark(marked_vertex.position);
-    }}, "landmark").name("create/delete landmark");
+    gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
 
     let variance_folder = gui.addFolder("pca variance");
-    let controller_variance_scale = variance_folder.add({variance_scale}, "variance_scale", -0.1, 0.1, 0.001).name("variance scale")
+    let controller_variance_scale = variance_folder.add({variance_scale}, "variance_scale", -3, 3, 0.001).name("variance scale")
         .onChange(value => {
-        variance_scale = value;
-        variance_changed = true;
+            variance_scale = value;
+            updateMesh(updateAlpha());
         });
-    variance_folder.add({pca_index}, "pca_index", 0, 20, 1).name("pca index")
+    let controller_pca_index = variance_folder.add({pca_index}, "pca_index", 0, 20, 1).name("pca index")
         .onChange(value => {
-        pca_index = value;
-        controller_variance_scale.setValue(z.arraySync()[pca_index]);
+            pca_index = value;
+            controller_variance_scale.setValue(alpha.arraySync()[pca_index]);
         });
     variance_folder.add({reset_variance_scale: function() {
-        model.userData.z = tf.zeros(model.userData.z.shape);
-        variance_scale = 0;
-        pca_index = 0;
-        variance_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
-        variance_changed = true;
+        generateAlpha();
+        controller_variance_scale.setValue(alpha.arraySync()[0]);
+        controller_pca_index.setValue(0);
+        updateMesh(updateAlpha());
     }}, "reset_variance_scale").name("reset variance scale");
 
     vertex_folder = gui.addFolder("change vertex position");

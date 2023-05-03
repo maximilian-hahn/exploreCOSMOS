@@ -1,21 +1,19 @@
 import './style.css';
-import {initGui, point_scale, variance_changed, vertex_change, reset_vertex_gui} from './gui.js';
-import {loadValues, computePosterior} from './computation.js';
+import {initGui, point_scale, vertex_change, reset_vertex_gui} from './gui.js';
+import {loadValues} from './computation.js';
 import * as THREE from 'three';
 import * as Math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import * as hdf5 from 'jsfive';
 import * as tf from '@tensorflow/tfjs';
 
 export let scene;
 export let model, model_vertices;
+let marked_vertex, marked_vertex_index;
 let canvas, renderer, camera, controls, raycaster;
 let axes_scene;
-let landmarks = new Array;
 let reset_orig_flag = false;
-let marked_vertex, marked_vertex_index;
 let mouse_down = false;
 
 init();
@@ -184,13 +182,8 @@ function render() {
 
 function update() {
   scene.children.forEach(element => {
-    if (element.name == "marked vertex") element.scale.setScalar(point_scale);
+    if (element.name == "marked vertex" || element.name.startsWith("landmark")) element.scale.setScalar(point_scale);
   });
-
-  if (variance_changed) {
-    computeAndShowPosterior();
-    variance_changed = false;
-  }
 
   if (vertex_change.length() > 0) {
     const model_position = model.geometry.getAttribute('position');
@@ -209,6 +202,7 @@ function update() {
     
     model_position.needsUpdate = true;
     model.geometry.computeBoundingSphere();
+    model.geometry.computeVertexNormals();
 
     marked_vertex.position.set(marked_vertex_old_pos.x + vertex_change.x, marked_vertex_old_pos.y + vertex_change.y, marked_vertex_old_pos.z + vertex_change.z);
 
@@ -220,7 +214,7 @@ function update() {
 
 
 function createPoint(position) {
-  let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
+  let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF0000}));
   point.position.set(...position);
   point.original_position = new THREE.Vector3(...position);
   point.name = "marked vertex";
@@ -261,14 +255,29 @@ function createPoint(position) {
   return point;
 }
 
+export function handleLandmarks() {
+  if (marked_vertex == undefined) {
+    console.log("mark a vertex to create a landmark for it");
+    return;
+  }
+  let exisiting_landmark = model.userData.landmarks.find(landmark => landmark.position.equals(marked_vertex.position));
+  if (exisiting_landmark != undefined) {
+    scene.remove(exisiting_landmark);
+    console.log("landmark removed");
+  } else {
+    createLandmark(marked_vertex.position);
+    console.log("landmark created");
+  }
+}
+
 function createLandmark(position) {
-  let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.05, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF5555}));
+  let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x00FF00}));
   landmark.position.set(...position);
-  landmark.name = "landmark: " + position;
+  landmark.name = "landmark: " + position.toArray();
   console.log(landmark.name); // TODO
 
   scene.add(landmark);
-  landmarks.push(landmark);
+  model.userData.landmarks.push(landmark);
   return landmark;
 }
 
@@ -280,6 +289,7 @@ function updateMarkedVertex(position) {
     marked_vertex.position.set(...position);
     marked_vertex.original_position.set(...position);
   }
+  console.log("position of marked vertex: ", position);
 }
 
 function getVertices(object) {
@@ -301,8 +311,6 @@ function drawNearestVertex(clicked_position) {
       marked_vertex_index = i;
     }
   };
-  model_vertices.geometry.attributes.color.setXYZ(marked_vertex_index, 0, 1, 0);
-  model_vertices.geometry.attributes.color.needsUpdate = true;
   updateMarkedVertex(nearestPoint);
 }
 
@@ -325,7 +333,7 @@ function loadMesh(vertices, indices, name) {
   let geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0});  // side: THREE.DoubleSide to turn off backface culling
+  let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0, side: THREE.DoubleSide});  // side: THREE.DoubleSide to turn off backface culling
   let mesh = new THREE.Mesh(geometry, material);
 
   // mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
@@ -334,20 +342,19 @@ function loadMesh(vertices, indices, name) {
   const position = mesh.geometry.getAttribute('position');
   mesh.geometry.attributes.original_position = position.clone();
   mesh.name = name;
+  mesh.userData.landmarks = new Array;
   console.log(name + ": ");
   console.log(mesh);
   model = mesh;
   scene.add(mesh);
 }
 
-export function computeAndShowPosterior() {
-  let posterior_mean = computePosterior(model);
-
+export function updateMesh(vertices) {
   let point_indices = model.userData.point_indices;
 
   scene.remove(scene.getObjectByName("model"));
   scene.remove(scene.getObjectByName("points"));
-  loadMesh(new Float32Array(posterior_mean.arraySync()), point_indices, "model");
+  loadMesh(new Float32Array(vertices), point_indices, "model");
   drawVertices(model, "points");
 
   model.userData.point_indices = point_indices;
