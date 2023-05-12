@@ -58,7 +58,7 @@ function init() {
   // directional light
   {
     const light = new THREE.DirectionalLight(0xFFFFFF, 1);
-    light.position.set(-10, 2, 0);
+    light.position.set(0, 2, -10);
     scene.add(light);
   }
 
@@ -289,7 +289,6 @@ function updateMarkedVertex(position) {
     marked_vertex.position.set(...position);
     marked_vertex.original_position.set(...position);
   }
-  console.log("position of marked vertex: ", position);
 }
 
 function getVertices(object) {
@@ -311,6 +310,8 @@ function drawNearestVertex(clicked_position) {
       marked_vertex_index = i;
     }
   };
+  console.log("position of marked vertex: ", nearestPoint);
+  console.log("Index of vertex: ", marked_vertex_index);
   updateMarkedVertex(nearestPoint);
 }
 
@@ -331,7 +332,7 @@ function drawVertices(mesh, name) {
 
 function loadMesh(vertices, indices, name) {
   let geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   let material = new THREE.MeshPhongMaterial({color: 0xf0f0f0, side: THREE.DoubleSide});  // side: THREE.DoubleSide to turn off backface culling
   let mesh = new THREE.Mesh(geometry, material);
@@ -339,6 +340,14 @@ function loadMesh(vertices, indices, name) {
   // mesh.geometry = BufferGeometryUtils.mergeVertices(mesh.geometry);
   mesh.geometry.computeVertexNormals();
   
+  // set the orbit controls target to the center of the mesh
+  // src: https://stackoverflow.com/questions/38305408/threejs-get-center-of-object
+  mesh.geometry.computeBoundingBox();
+  let center = new THREE.Vector3();
+  geometry.boundingBox.getCenter(center);
+  mesh.localToWorld(center);
+  controls.target.set(...center);
+
   const position = mesh.geometry.getAttribute('position');
   mesh.geometry.attributes.original_position = position.clone();
   mesh.name = name;
@@ -347,6 +356,8 @@ function loadMesh(vertices, indices, name) {
   console.log(mesh);
   model = mesh;
   scene.add(mesh);
+
+  
 }
 
 export function updateMesh(vertices) {
@@ -354,13 +365,15 @@ export function updateMesh(vertices) {
 
   scene.remove(scene.getObjectByName("model"));
   scene.remove(scene.getObjectByName("points"));
-  loadMesh(new Float32Array(vertices), point_indices, "model");
+  loadMesh(vertices, point_indices, "model");
   drawVertices(model, "points");
 
   model.userData.point_indices = point_indices;
 }
 
-function centerMeshPosition(position_matrix) {
+function centerMeshPosition(mesh_position) {
+  console.log(mesh_position);
+  let position_matrix = Math.reshape(mesh_position, [3, -1]);
   // subtract average position from every point to center mesh to origin of space
   let avg_position = position_matrix.map(dim => (dim.reduce((a, b) => a + b, 0) / dim.length));
   position_matrix = Math.transpose(position_matrix);
@@ -473,26 +486,40 @@ function loadInput(event) {
     let array_buffer = evt.target.result;
     let f = new hdf5.File(array_buffer, file.name);
 
+    // determine the path of the .h5 file, morphable models have a seperate folder for the shape, statistical models don't
+    let path = 'shape/';
+    try {
+      f.get('shape');
+    } catch (error) {
+      console.log(error + " -> model data in root folder");
+      path = '';
+    }
+
     // loading template model
-    let template_points = f.get('shape/representer/points');  // coordinates of template model points
-    let template_cells = f.get('shape/representer/cells');    // indices of template model for triangles
+    let template_points = f.get(path + 'representer/points');  // coordinates of template model points
+    let template_cells = f.get(path + 'representer/cells');    // indices of template model for triangles
 
     // weird I would have to do this but input has flipped dimensions?
     let point_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
-
-    let position_matrix =  Math.reshape(template_points.value, template_points.shape);
-    let point_positions = centerMeshPosition(position_matrix);
     
-    loadMesh(point_positions, point_indices, "template_model");
+    scene.remove(scene.getObjectByName("template_model"));
+    loadMesh((template_points.value), point_indices, "template_model");
+
+    scene.remove(scene.getObjectByName("template_points"));
     drawVertices(model, "template_points");
+
     model.visible = false;
     model_vertices.visible = false;
 
     // load prior values for posterior computation
-    loadValues(f);
+    loadValues(f, path);
 
-    loadMesh(new Float32Array(f.get('shape/model/mean').value), point_indices, "model");
+    scene.remove(scene.getObjectByName("model"));
+    loadMesh(f.get(path + 'model/mean').value, point_indices, "model");
+
+    scene.remove(scene.getObjectByName("points"));
     drawVertices(model, "points");
+
     model.userData.point_indices = point_indices;
   }
   reader.readAsArrayBuffer(file);
