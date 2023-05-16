@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, model, handleLandmarks} from './script.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks} from './script.js';
 import { alpha, generateAlpha, updateAlpha, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import * as THREE from 'three';
@@ -69,6 +69,23 @@ export function initGui() {
         current_pos.needsUpdate = true;
         model.geometry.computeBoundingSphere();
     }}, "reset_all").name("reset all vertices");
+
+    let light_folder = gui.addFolder("change directional light position");
+    light_folder.add(light.position, "x", -50, 50, 0.5).name("change light x")
+        .onChange(value => light.position.x = value);
+    light_folder.add(light.position, "y", -50, 50, 0.5).name("change light y")
+        .onChange(value => light.position.y = value);
+    light_folder.add(light.position, "z", -50, 50, 0.5).name("change light z")
+        .onChange(value => light.position.z = value);
+    light_folder.add(light, "intensity", 0, 1, 0.05).name("change light intensity")
+        .onChange(value => light.intensity = value);
+
+    let camera_folder = gui.addFolder("change camera settings");
+    camera_folder.add({y_axis: function() {
+        if (camera.up.y == 1) camera.up.set(0, -1, 0);
+        else  camera.up.set(0, 1, 0);
+        controls.rotateSpeed *= -1;
+    }}, "y_axis").name("flip y axis");
 }
 
 export function reset_vertex_gui() {

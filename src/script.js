@@ -8,10 +8,10 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as hdf5 from 'jsfive';
 import * as tf from '@tensorflow/tfjs';
 
-export let scene;
+export let scene, light, camera, controls;
 export let model, model_vertices;
 let marked_vertex, marked_vertex_index;
-let canvas, renderer, camera, controls, raycaster;
+let canvas, renderer, raycaster;
 let axes_scene;
 let reset_orig_flag = false;
 let mouse_down = false;
@@ -43,9 +43,6 @@ function init() {
   const axes_helper = new THREE.AxesHelper(500);
   axes_scene.add(axes_helper);
 
-  initGui();
-
-
   // hemisphere light
   {
     const skyColor = 0xB1E1FF;  // light blue
@@ -57,8 +54,9 @@ function init() {
 
   // directional light
   {
-    const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+    light = new THREE.DirectionalLight();
     light.position.set(0, 2, -10);
+    light.intensity = 0.5;
     scene.add(light);
   }
 
@@ -67,6 +65,7 @@ function init() {
     scene.add(new THREE.AmbientLight(0x404040));
   }
   
+  initGui();
 
   // plane for reference of space
   /*{

@@ -2,36 +2,37 @@ import {variance_scale, pca_index} from './gui.js';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
 
-let mean;       // mean of prior model
-let Q;          // matrix containing principal components
-let variance;   // variance or sigma^2 of above matrix; earlier components have a higher variance
-let stddev;     // sigma or sqrt(variance)
-export let alpha;      // coefficients for principal component matrix Q that follow a standard normal distribution
-let template_positions;
+/**
+ *  the math for posterior shape models is based on the paper: Medical Image Analysis 17 (2013) 959–973
+ */
 
+let mean;               // mean of current model
+let Q;                  // matrix containing principal components in each column * standard deviation
+let variance;           // variance or sigma^2 of above matrix; earlier components have a higher variance
+let stddev;             // sigma or sqrt(variance)
+export let alpha;       // coefficients for principal component matrix Q that follow a standard normal distribution
+let reference_position; // vector of the reference shape
+
+
+// loads the necessary values for the posterior computation from the given .h5 file
 export function loadValues(file, path) {
     mean = tf.tensor(file.get(path + 'model/mean').value);
     let pca_basis = file.get(path + 'model/pcaBasis');
     Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
-    template_positions = tf.tensor(file.get(path + 'representer/points').value);
-    
-    // console.log("Q before : ");
-    // console.log(Q.arraySync());
-    // // add mean to every Q column
-    // let Q_tmp = Q.transpose();
-    // Q = Q_tmp.add(mean);
-    // Q = Q.transpose();
-    // console.log("Q after: ");
-    // console.log(Q.arraySync());
-    
     variance = tf.tensor(file.get(path + 'model/pcaVariance').value);
     stddev = variance.sqrt();
     Q = Q.mul(stddev);
-    generateAlpha();
-    console.log("alpha: ");
-    console.log(alpha.arraySync());
+
+    alpha = tf.zeros(variance.shape);
+    // generateAlpha();
+
+    reference_position = tf.tensor(file.get(path + 'representer/points').value);
+
+    console.log("stddev: ", stddev.arraySync());
+    console.log("reference position: ", reference_position.arraySync());
 }
 
+// generates random normally distributed values for alpha
 export function generateAlpha() {
     alpha = new Array;
     for (let i = 0; i < variance.shape; i++) {
@@ -40,6 +41,7 @@ export function generateAlpha() {
     alpha = tf.tensor(alpha);
 }
 
+// updates the shape vector with given alpha user inputs
 export function updateAlpha() {
     alpha = tf.buffer(alpha.shape, alpha.dtype, alpha.dataSync());
     alpha.set(variance_scale, pca_index);
@@ -48,14 +50,20 @@ export function updateAlpha() {
     return s.arraySync();
 }
 
-// calculate the posterior mean of the given model and add it to the scene
+// TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
+// calculates the posterior mean of the given model
 export function computePosterior(model) {
-    // get changed positions of model aka observations and update the mean
+
+    // get changed positions of model aka observations
     let changed_indices = new Array;
     const model_position = model.geometry.getAttribute('position').array;
-    model_position[19748*3+2] += 3;
+
+    console.log(model_position[19748*3]);
+    console.log(model_position[19748*3+1]);
+    console.log(model_position[19748*3]+2);
+
+    model_position[19748*3+2] += 1000;
     const model_old_pos = model.geometry.getAttribute('original_position').array;
-    mean = model_position;
     for (let i = 0; i < model_position.length; i+=3) {
         if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
             changed_indices.push(i);
@@ -71,9 +79,7 @@ export function computePosterior(model) {
             }
         });
     }
-    mean = tf.tensor(mean);
 
-    // math based on paper: Medical Image Analysis 17 (2013) 959–973
     let s = mean.add(Q.dot(alpha));  // s = mean + Q * alpha
     // s.print(); // dim: 5265 ~ 1
 
@@ -86,7 +92,7 @@ export function computePosterior(model) {
         mean_g.push(mean.arraySync()[changed_index]);
         Q_g.push(Q.arraySync()[changed_index]);
     });
-    // console.log("s_g: " + s_g);
+    console.log("s_g: " + s_g);
     // console.log("mean_g: " + mean_g);
     // console.log("Q_g: " + Q_g);
 
@@ -121,6 +127,10 @@ export function computePosterior(model) {
     console.log("posterior_mean: ");
     console.log(JSON.stringify(posterior_mean.arraySync()));
 
+    console.log(posterior_mean.arraySync()[19748*3]);
+    console.log(posterior_mean.arraySync()[19748*3+1]);
+    console.log(posterior_mean.arraySync()[19748*3]+2);
+
     return posterior_mean.arraySync();
   
 }
@@ -133,142 +143,4 @@ function normalDistribution(mean=0, stdev=1) {
     let z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.pi * v );
     // Transform to the desired mean and standard deviation:
     return z * stdev + mean;
-}
-
-
-// src: https://stackoverflow.com/questions/51805389/how-do-i-invert-a-matrix-in-tensorflow-js
-// calculate the determinant of a matrix m
-function det(m) {
-    return tf.tidy(() => {
-        const [r, _] = m.shape
-        if (r === 2) {
-            const t = m.as1D()
-            const a = t.slice([0], [1]).dataSync()[0]
-            const b = t.slice([1], [1]).dataSync()[0]
-            const c = t.slice([2], [1]).dataSync()[0]
-            const d = t.slice([3], [1]).dataSync()[0]
-            let result = a * d - b * c
-            return result
-
-        } else {
-            let s = 0;
-            let rows = [...Array(r).keys()]
-            for (let i = 0; i < r; i++) {
-                let sub_m = m.gather(tf.tensor1d(rows.filter(e => e !== i), 'int32'))
-                let sli = sub_m.slice([0, 1], [r - 1, r - 1])
-                s += Math.pow(-1, i) * det(sli)
-            }
-            return s
-        }
-    })
-}
-
-function inverse(_A) {
-    var temp,
-    N = _A.length,
-    E = [];
-   
-    for (var i = 0; i < N; i++)
-      E[i] = [];
-   
-    for (i = 0; i < N; i++)
-      for (var j = 0; j < N; j++) {
-        E[i][j] = 0;
-        if (i == j)
-          E[i][j] = 1;
-      }
-   
-    for (var k = 0; k < N; k++) {
-      temp = _A[k][k];
-   
-      for (var j = 0; j < N; j++)
-      {
-        _A[k][j] /= temp;
-        E[k][j] /= temp;
-      }
-   
-      for (var i = k + 1; i < N; i++)
-      {
-        temp = _A[i][k];
-   
-        for (var j = 0; j < N; j++)
-        {
-          _A[i][j] -= _A[k][j] * temp;
-          E[i][j] -= E[k][j] * temp;
-        }
-      }
-    }
-   
-    for (var k = N - 1; k > 0; k--)
-    {
-      for (var i = k - 1; i >= 0; i--)
-      {
-        temp = _A[i][k];
-   
-        for (var j = 0; j < N; j++)
-        {
-          _A[i][j] -= _A[k][j] * temp;
-          E[i][j] -= E[k][j] * temp;
-        }
-      }
-    }
-   
-    for (var i = 0; i < N; i++)
-      for (var j = 0; j < N; j++)
-        _A[i][j] = E[i][j];
-    return _A;
-  }
-
-// src: https://stackoverflow.com/questions/51805389/how-do-i-invert-a-matrix-in-tensorflow-js
-// calculate the inverse of the matrix : jordan-gauss method
-export function invertMatrix(m) {
-    return tf.tidy(() => {
-        if (det(m) === 0) {
-            return
-        }
-        console.log("det not zero")
-        const [r, _] = m.shape
-        let inv = m.concat(tf.eye(r), 1)
-        let rows = [...Array(r).keys()]
-        for (let i = 0; i < r; i++) {
-            inv = tf.tidy(() => {
-                for (let j = i + 1; j < r; j++) {
-                    const elt = inv.slice([j, i], [1, 1]).as1D().asScalar()
-                    const pivot = inv.slice([i, i], [1, 1]).as1D().asScalar()
-                    let newrow
-                    if (elt.dataSync()[0] !== 0) {
-                        newrow = inv.gather(tf.tensor1d([i], 'int32')).sub(inv.gather(tf.tensor1d([j], 'int32')).div(elt).mul(pivot)).as1D()
-                        const sli = inv.gather(rows.filter(e => e !== j))
-                        const arr = []
-                        if (j === 0) {
-                            arr.push(newrow)
-                        }
-                        sli.unstack().forEach((t, ind) => {
-                            if (ind !== j) {
-                                arr.push(t)
-                            } else {
-                                arr.push(newrow)
-                                arr.push(t)
-                            }
-                        })
-                        if (j === r - 1) {
-                            arr.push(newrow)
-                        }
-                        inv = tf.stack(arr)
-                    }
-                }
-                return inv
-            })
-        }
-        const trian = tf.unstack(inv)
-        let len = trian.length
-        trian[len - 1] = trian[len - 1].div(trian[len - 1].slice(trian[len - 1].shape[0] - 1, 1).asScalar())
-        for (let i = r - 2; i > -1; i--) {
-            for (j = r - 1; j > i; j--) {
-                trian[i] = trian[i].sub(trian[j].mul(trian[i].slice(j, 1).asScalar()))
-            }
-            trian[i] = trian[i].div(trian[i].slice(i, 1).asScalar())
-        }
-        return tf.split(tf.stack(trian), 2, 1)[1]
-    })
 }
