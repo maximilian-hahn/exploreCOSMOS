@@ -11,6 +11,7 @@ let Q;                  // matrix containing principal components in each column
 let variance;           // variance or sigma^2 of above matrix; earlier components have a higher variance
 let stddev;             // sigma or sqrt(variance)
 export let alpha;       // coefficients for principal component matrix Q that follow a standard normal distribution
+let s;                  // shape vector calculated using the formula s = mean + Q*alpha
 let reference_position; // vector of the reference shape
 
 
@@ -23,8 +24,9 @@ export function loadValues(file, path) {
     stddev = variance.sqrt();
     Q = Q.mul(stddev);
 
-    alpha = tf.zeros(variance.shape);
-    // generateAlpha();
+    alpha = tf.zeros(variance.shape);   // generateAlpha();
+
+    s = mean.clone();   // as alpha is initialized with zeros, s equals to mean
 
     reference_position = tf.tensor(file.get(path + 'representer/points').value);
 
@@ -46,8 +48,20 @@ export function updateAlpha() {
     alpha = tf.buffer(alpha.shape, alpha.dtype, alpha.dataSync());
     alpha.set(variance_scale, pca_index);
     alpha = alpha.toTensor();
-    let s = mean.add(Q.dot(alpha));
+    s = mean.add(Q.dot(alpha));
+
+    console.log("alpha input: ", alpha.arraySync());
     return s.arraySync();
+}
+
+// debugging function that inverts the formula s = mean + Q*alpha -> alpha = Q_inv*(s - mean)
+export function alphaFromS() {
+    Q = Math.matrix(Q.arraySync());
+    let Q_inv = Math.pinv(Q);
+    Q_inv = tf.tensor(Q_inv._data);
+
+    alpha = Q_inv.dot(s.sub(mean));
+    console.log("alpha from s: ", alpha.arraySync());
 }
 
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
@@ -57,10 +71,6 @@ export function computePosterior(model) {
     // get changed positions of model aka observations
     let changed_indices = new Array;
     const model_position = model.geometry.getAttribute('position').array;
-
-    console.log(model_position[19748*3]);
-    console.log(model_position[19748*3+1]);
-    console.log(model_position[19748*3]+2);
 
     model_position[19748*3+2] += 1000;
     const model_old_pos = model.geometry.getAttribute('original_position').array;
@@ -80,9 +90,6 @@ export function computePosterior(model) {
         });
     }
 
-    let s = mean.add(Q.dot(alpha));  // s = mean + Q * alpha
-    // s.print(); // dim: 5265 ~ 1
-
     // select those elements and rows that correspond to the changed positions (observations)
     let s_g = new Array;
     let mean_g = new Array;
@@ -92,41 +99,30 @@ export function computePosterior(model) {
         mean_g.push(mean.arraySync()[changed_index]);
         Q_g.push(Q.arraySync()[changed_index]);
     });
-    console.log("s_g: " + s_g);
-    // console.log("mean_g: " + mean_g);
-    // console.log("Q_g: " + Q_g);
 
     s_g = tf.tensor(s_g);
     mean_g = tf.tensor(mean_g);
     Q_g = tf.tensor(Q_g);
 
-    // console.log("Q_g: ");
-    // console.log(Q_g.arraySync());
     let Q_gT = Q_g.transpose();
    
     let M = Q_gT.matMul(Q_g);
     M = M.add(tf.diag(variance));
-    // console.log(JSON.stringify(M.arraySync()));
 
-    // console.log("M: ");
-    // console.log(M.arraySync());
-
-    // calculating pseudo inverse is not implemented in tensorflow.js -> Math.js
+    // calculating (pseudo) inverse is not implemented in tensorflow.js -> Math.js
     M = Math.matrix(M.arraySync());
-    // console.log("det: " + Math.det(M));
     let M_inverse = Math.inv(M);
-
     M_inverse = tf.tensor(M_inverse._data);
-    // console.log("M_inverse: ");
-    // console.log(M_inverse.arraySync());
-    // mean = mean.add(template_positions);
+    
     let mean_coeffs = M_inverse.matMul(Q_gT).dot(s_g.sub(mean_g));
     let posterior_mean = mean.add(Q.dot(mean_coeffs));
-    console.log("mean: ");
-    console.log(JSON.stringify(mean.arraySync()));
-    console.log("posterior_mean: ");
-    console.log(JSON.stringify(posterior_mean.arraySync()));
 
+    console.log("mean: ", JSON.stringify(mean.arraySync()));
+    console.log("posterior_mean: ", JSON.stringify(posterior_mean.arraySync()));
+
+    console.log(model_position[19748*3]);
+    console.log(model_position[19748*3+1]);
+    console.log(model_position[19748*3]+2);
     console.log(posterior_mean.arraySync()[19748*3]);
     console.log(posterior_mean.arraySync()[19748*3+1]);
     console.log(posterior_mean.arraySync()[19748*3]+2);

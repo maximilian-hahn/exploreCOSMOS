@@ -1,6 +1,7 @@
 import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks} from './script.js';
-import { alpha, generateAlpha, updateAlpha, computePosterior } from './computation.js';
+import { alpha, generateAlpha, updateAlpha, alphaFromS, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
+import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
 import * as THREE from 'three';
 
 export let point_scale = 10;
@@ -9,6 +10,7 @@ export let vertex_change = new THREE.Vector3(0, 0, 0);
 export let pca_index = 0;
 
 let gui, vertex_folder;
+let exported_file = null;
 
 export function initGui() {
     gui = new GUI();
@@ -48,6 +50,7 @@ export function initGui() {
         controller_pca_index.setValue(0);
         updateMesh(updateAlpha());
     }}, "reset_variance_scale").name("reset variance scale");
+    variance_folder.add({alpha_from_s: alphaFromS}, "alpha_from_s").name("calculate alpha from s");
 
     vertex_folder = gui.addFolder("change vertex position");
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
@@ -70,14 +73,14 @@ export function initGui() {
         model.geometry.computeBoundingSphere();
     }}, "reset_all").name("reset all vertices");
 
-    let light_folder = gui.addFolder("change directional light position");
-    light_folder.add(light.position, "x", -50, 50, 0.5).name("change light x")
+    let light_folder = gui.addFolder("change directional light");
+    light_folder.add(light.position, "x", -50, 50, 0.5).name("light x")
         .onChange(value => light.position.x = value);
-    light_folder.add(light.position, "y", -50, 50, 0.5).name("change light y")
+    light_folder.add(light.position, "y", -50, 50, 0.5).name("light y")
         .onChange(value => light.position.y = value);
-    light_folder.add(light.position, "z", -50, 50, 0.5).name("change light z")
+    light_folder.add(light.position, "z", -50, 50, 0.5).name("light z")
         .onChange(value => light.position.z = value);
-    light_folder.add(light, "intensity", 0, 1, 0.05).name("change light intensity")
+    light_folder.add(light, "intensity", 0, 1, 0.05).name("light intensity")
         .onChange(value => light.intensity = value);
 
     let camera_folder = gui.addFolder("change camera settings");
@@ -86,6 +89,22 @@ export function initGui() {
         else  camera.up.set(0, 1, 0);
         controls.rotateSpeed *= -1;
     }}, "y_axis").name("flip y axis");
+
+    gui.add({export_as_ply: function() {
+        const exporter = new PLYExporter();
+        const data = new Blob([exporter.parse(model)], {type: 'text/plain'});
+
+        // src: http://jsfiddle.net/UselessCode/qm5AG/
+        // If we are replacing a previously generated file we need to
+        // manually revoke the object URL to avoid memory leaks.
+        if (exported_file !== null) window.URL.revokeObjectURL(exported_file);
+        exported_file = window.URL.createObjectURL(data);
+
+        let link = document.getElementById("downloadlink");
+        link.href = exported_file;
+        link.style.display = 'block';
+    }}, "export_as_ply").name("export model as .ply file (download bottom left)");
+
 }
 
 export function reset_vertex_gui() {
