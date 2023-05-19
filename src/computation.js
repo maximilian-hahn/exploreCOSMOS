@@ -1,16 +1,23 @@
 import {variance_scale, pca_index} from './gui.js';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
+import { Matrix } from 'ml-matrix';
+const {inverse, pseudoInverse} = require('ml-matrix');
 
 /**
- *  the math for posterior shape models is based on the paper: Medical Image Analysis 17 (2013) 959–973
+ *  the math for posterior shape models is based on the paper:
+ *  Albrecht, T. et al. "Posterior shape models" Medical Image Analysis 17 (2013) 959–973
  */
-
+ 
 let mean;               // mean of current model
+                        // saved as absolute positions
 let Q;                  // matrix containing principal components in each column * standard deviation
+                        // principal components saved as deformations
 let variance;           // variance or sigma^2 of above matrix; earlier components have a higher variance
+                        // first value in order of 100,000 
 let stddev;             // sigma or sqrt(variance)
 export let alpha;       // coefficients for principal component matrix Q that follow a standard normal distribution
+                        // values in range [-3;3]
 let s;                  // shape vector calculated using the formula s = mean + Q*alpha
 let reference_position; // vector of the reference shape
 
@@ -29,9 +36,6 @@ export function loadValues(file, path) {
     s = mean.clone();   // as alpha is initialized with zeros, s equals to mean
 
     reference_position = tf.tensor(file.get(path + 'representer/points').value);
-
-    console.log("stddev: ", stddev.arraySync());
-    console.log("reference position: ", reference_position.arraySync());
 }
 
 // generates random normally distributed values for alpha
@@ -48,20 +52,27 @@ export function updateAlpha() {
     alpha = tf.buffer(alpha.shape, alpha.dtype, alpha.dataSync());
     alpha.set(variance_scale, pca_index);
     alpha = alpha.toTensor();
-    s = mean.add(Q.dot(alpha));
 
-    console.log("alpha input: ", alpha.arraySync());
+    s = mean.add(Q.dot(alpha)); // corresponds to formula (1) in the paper
+
     return s.arraySync();
 }
 
 // debugging function that inverts the formula s = mean + Q*alpha -> alpha = Q_inv*(s - mean)
 export function alphaFromS() {
-    Q = Math.matrix(Q.arraySync());
-    let Q_inv = Math.pinv(Q);
-    Q_inv = tf.tensor(Q_inv._data);
+    // pseudo inverse using Math.js
+    // let Q_inv = Math.pinv(Math.matrix(Q.arraySync()));
+    // Q_inv = tf.tensor(Q_inv._data);
 
+    // pseudo inverse using ml-matrix (better performance than Math.js)
+    let Q_inv = pseudoInverse(new Matrix(Q.arraySync()));
+    Q_inv = tf.tensor(Q_inv.to2DArray());
+
+    console.log("alpha before: ", alpha.arraySync());
     alpha = Q_inv.dot(s.sub(mean));
     console.log("alpha from s: ", alpha.arraySync());
+    s = mean.add(Q.dot(alpha));
+    return s.arraySync();
 }
 
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
@@ -70,16 +81,21 @@ export function computePosterior(model) {
 
     // get changed positions of model aka observations
     let changed_indices = new Array;
-    const model_position = model.geometry.getAttribute('position').array;
+    const nose_tip_id = 8156 * 3;
 
-    model_position[19748*3+2] += 1000;
+    const model_position = model.geometry.getAttribute('position').array;
+    model_position[nose_tip_id] += 10;  // manually added observation at the tip of the nose (bfm.h5 model)
+
     const model_old_pos = model.geometry.getAttribute('original_position').array;
+
+    // save all coordinates of the changed vertex even if only one changed
     for (let i = 0; i < model_position.length; i+=3) {
         if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
             changed_indices.push(i);
             changed_indices.push(i+1);
             changed_indices.push(i+2);
         }
+        // landmarks are also treated as observations
         model.userData.landmarks.forEach(landmark => {
             if (landmark.position[0] == model_position[i] || landmark.position[1] == model_position[i+1] || landmark.position[2] == model_position[i+2]) {
                 changed_indices.push(i);
@@ -90,7 +106,8 @@ export function computePosterior(model) {
         });
     }
 
-    // select those elements and rows that correspond to the changed positions (observations)
+    // select those elements and rows of s, mean and Q that correspond to the given observations
+    // corresponds to formula (4) in the paper
     let s_g = new Array;
     let mean_g = new Array;
     let Q_g = new Array;
@@ -99,34 +116,42 @@ export function computePosterior(model) {
         mean_g.push(mean.arraySync()[changed_index]);
         Q_g.push(Q.arraySync()[changed_index]);
     });
-
     s_g = tf.tensor(s_g);
     mean_g = tf.tensor(mean_g);
     Q_g = tf.tensor(Q_g);
 
+    // corresponds to formula (10) in the paper
     let Q_gT = Q_g.transpose();
-   
     let M = Q_gT.matMul(Q_g);
     M = M.add(tf.diag(variance));
 
-    // calculating (pseudo) inverse is not implemented in tensorflow.js -> Math.js
-    M = Math.matrix(M.arraySync());
-    let M_inverse = Math.inv(M);
-    M_inverse = tf.tensor(M_inverse._data);
+    // calculating (pseudo) inverse is not implemented in tensorflow.js -> switch data types to ml-matrix and back
+    let M_inv = inverse(new Matrix(M.arraySync()));
+    M_inv = tf.tensor(M_inv.to2DArray());
     
-    let mean_coeffs = M_inverse.matMul(Q_gT).dot(s_g.sub(mean_g));
-    let posterior_mean = mean.add(Q.dot(mean_coeffs));
+    let posterior_mean = mean.add(Q.dot(M_inv.dot(Q_gT.dot(s_g.sub(mean_g))))); // corresponds to formula (12) in the paper
 
     console.log("mean: ", JSON.stringify(mean.arraySync()));
     console.log("posterior_mean: ", JSON.stringify(posterior_mean.arraySync()));
 
-    console.log(model_position[19748*3]);
-    console.log(model_position[19748*3+1]);
-    console.log(model_position[19748*3]+2);
-    console.log(posterior_mean.arraySync()[19748*3]);
-    console.log(posterior_mean.arraySync()[19748*3+1]);
-    console.log(posterior_mean.arraySync()[19748*3]+2);
-
+    console.log("prior position of nose tip");
+    console.log(model_position[nose_tip_id]);
+    console.log(model_position[nose_tip_id+1]);
+    console.log(model_position[nose_tip_id+2]);
+    console.log("posterior position of nose tip");
+    console.log(posterior_mean.arraySync()[nose_tip_id]);
+    console.log(posterior_mean.arraySync()[nose_tip_id+1]);
+    console.log(posterior_mean.arraySync()[nose_tip_id+2]);
+    console.log("prior position of neighboring point");
+    console.log(model_position[nose_tip_id+3]);
+    console.log(model_position[nose_tip_id+4]);
+    console.log(model_position[nose_tip_id+5]);
+    console.log("posterior position of neighboring point");
+    console.log(posterior_mean.arraySync()[nose_tip_id+3]);
+    console.log(posterior_mean.arraySync()[nose_tip_id+4]);
+    console.log(posterior_mean.arraySync()[nose_tip_id+5]);
+    
+    // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();
   
 }

@@ -49,8 +49,10 @@ export function initGui() {
         controller_variance_scale.setValue(alpha.arraySync()[0]);
         controller_pca_index.setValue(0);
         updateMesh(updateAlpha());
-    }}, "reset_variance_scale").name("reset variance scale");
-    variance_folder.add({alpha_from_s: alphaFromS}, "alpha_from_s").name("calculate alpha from s");
+    }}, "reset_variance_scale").name("generate random normally distributed values");
+    variance_folder.add({alpha_from_s: function() {
+        updateMesh(alphaFromS());
+    }}, "alpha_from_s").name("calculate alpha from s");
 
     vertex_folder = gui.addFolder("change vertex position");
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
