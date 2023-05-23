@@ -122,13 +122,9 @@ export function computePosterior(model) {
 
     // get changed positions of model aka observations
     let changed_indices = new Array;
-    const nose_tip_id = 8156 * 3;
 
     const model_position = model.geometry.getAttribute('position').array;
-    model_position[nose_tip_id] += 10;  // manually added observation at the tip of the nose (bfm.h5 model)
-    s = s.arraySync();
-    s[nose_tip_id] += 10;
-    s = tf.tensor(s);
+    s = tf.tensor(model_position);
 
     const model_old_pos = model.geometry.getAttribute('original_position').array;
 
@@ -164,36 +160,17 @@ export function computePosterior(model) {
     mean_g = tf.tensor(mean_g);
     Q_g = tf.tensor(Q_g);
 
-    // corresponds to formula (10) in the paper
-    let Q_gT = Q_g.transpose();
-    let M = Q_gT.matMul(Q_g);
-    M = M.add(tf.diag(variance));
+    let Q_g_inv = pseudoInverse(new Matrix(Q_g.arraySync()));
+    Q_g_inv = tf.tensor(Q_g_inv.to2DArray());
 
-    // calculating (pseudo) inverse is not implemented in tensorflow.js -> switch data types to ml-matrix and back
-    let M_inv = inverse(new Matrix(M.arraySync()));
-    M_inv = tf.tensor(M_inv.to2DArray());
-    
-    let posterior_mean = mean.add(Q.dot(M_inv.dot(Q_gT.dot(s_g.sub(mean_g))))); // corresponds to formula (12) in the paper
+    console.log("alpha before: ", alpha.arraySync());
+    alpha = Q_g_inv.dot(s_g.sub(mean_g));
+    console.log("alpha from observations: ", alpha.arraySync());
+    s = mean.add(Q.dot(alpha));
+    let posterior_mean = s;
 
     console.log("mean: ", JSON.stringify(mean.arraySync()));
     console.log("posterior_mean: ", JSON.stringify(posterior_mean.arraySync()));
-
-    console.log("prior position of nose tip");
-    console.log(model_position[nose_tip_id]);
-    console.log(model_position[nose_tip_id+1]);
-    console.log(model_position[nose_tip_id+2]);
-    console.log("posterior position of nose tip");
-    console.log(posterior_mean.arraySync()[nose_tip_id]);
-    console.log(posterior_mean.arraySync()[nose_tip_id+1]);
-    console.log(posterior_mean.arraySync()[nose_tip_id+2]);
-    console.log("prior position of neighboring point");
-    console.log(model_position[nose_tip_id+3]);
-    console.log(model_position[nose_tip_id+4]);
-    console.log(model_position[nose_tip_id+5]);
-    console.log("posterior position of neighboring point");
-    console.log(posterior_mean.arraySync()[nose_tip_id+3]);
-    console.log(posterior_mean.arraySync()[nose_tip_id+4]);
-    console.log(posterior_mean.arraySync()[nose_tip_id+5]);
 
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();
