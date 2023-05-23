@@ -127,7 +127,6 @@ export function computePosterior(model) {
     s = tf.tensor(model_position);
 
     const model_old_pos = model.geometry.getAttribute('original_position').array;
-
     // save all coordinates of the changed vertex even if only one changed
     for (let i = 0; i < model_position.length; i+=3) {
         if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
@@ -137,10 +136,11 @@ export function computePosterior(model) {
         }
         // landmarks are also treated as observations
         model.userData.landmarks.forEach(landmark => {
-            if (landmark.position[0] == model_position[i] || landmark.position[1] == model_position[i+1] || landmark.position[2] == model_position[i+2]) {
+            if (landmark.position.x == model_position[i] || landmark.position.y == model_position[i+1] || landmark.position.z == model_position[i+2]) {
                 changed_indices.push(i);
                 changed_indices.push(i+1);
                 changed_indices.push(i+2);
+                console.log("HERE LANDMARK FOUND");
                 return;
             }
         });
@@ -163,14 +163,9 @@ export function computePosterior(model) {
     let Q_g_inv = pseudoInverse(new Matrix(Q_g.arraySync()));
     Q_g_inv = tf.tensor(Q_g_inv.to2DArray());
 
-    console.log("alpha before: ", alpha.arraySync());
     alpha = Q_g_inv.dot(s_g.sub(mean_g));
-    console.log("alpha from observations: ", alpha.arraySync());
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
-
-    console.log("mean: ", JSON.stringify(mean.arraySync()));
-    console.log("posterior_mean: ", JSON.stringify(posterior_mean.arraySync()));
 
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();

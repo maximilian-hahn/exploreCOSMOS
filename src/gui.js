@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks} from './script.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks} from './script.js';
 import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
@@ -34,15 +34,16 @@ export function initGui() {
     }}, "posterior").name("compute posterior");
 
     gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
+    gui.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
 
     {
         let alpha_folder = gui.addFolder("pca alpha");
         for (let i = 0; i < alpha_scale.length; i++) {
             alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("index " + i)
-            .onChange(value => {
-                if (do_update_mesh) updateMesh(updateAlpha(value, i));
-                // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
-            }));
+                .onChange(value => {
+                    if (do_update_mesh) updateMesh(updateAlpha(value, i));
+                    // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
+                }));
         }
         let alpha_indexed_folder = alpha_folder.addFolder("manually define index");
         let controller_alpha_scale = alpha_indexed_folder.add({alpha_scale: alpha_scale[pca_index]}, "alpha_scale", -3, 3, 0.001).name("alpha scale")
@@ -56,10 +57,11 @@ export function initGui() {
                 controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
         });
         alpha_folder.add({reset_alpha_scale: function() {
+            do_update_mesh = false;
             generateAlpha();
-            controller_alpha_scale.setValue(alpha.arraySync()[0]);
             controller_pca_index.setValue(0);
             updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+            do_update_mesh = true;
             updateAlphaScale();
         }}, "reset_alpha_scale").name("generate random normally distributed values");
         alpha_folder.add({alpha_from_s: function() {

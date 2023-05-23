@@ -261,7 +261,7 @@ export function handleLandmarks() {
   let exisiting_landmark = model.userData.landmarks.find(landmark => landmark.position.equals(marked_vertex.position));
   if (exisiting_landmark != undefined) {
     scene.remove(exisiting_landmark);
-    console.log("landmark removed");
+    console.log("existing landmark removed");
   } else {
     createLandmark(marked_vertex.position);
     console.log("landmark created");
@@ -277,6 +277,13 @@ function createLandmark(position) {
   scene.add(landmark);
   model.userData.landmarks.push(landmark);
   return landmark;
+}
+
+export function loadLandmarks() {
+  model.userData.predefined_landmarks.forEach(predefined_landmark => {
+    createLandmark(new THREE.Vector3(...predefined_landmark.coordinates));
+  });
+  console.log(model.userData.landmarks);
 }
 
 function updateMarkedVertex(position) {
@@ -361,6 +368,7 @@ function loadMesh(vertices, indices, name) {
 export function updateMesh(vertices) {
   let point_indices = model.userData.point_indices;
 
+  model.userData.landmarks.forEach(landmark => scene.remove(landmark));
   scene.remove(scene.getObjectByName("model"));
   scene.remove(scene.getObjectByName("points"));
   loadMesh(vertices, point_indices, "model");
@@ -505,6 +513,8 @@ function loadInput(event) {
     scene.remove(scene.getObjectByName("points"));
     drawVertices(model, "points");
 
+    model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
+    console.log(model.userData.predefined_landmarks);
     model.userData.point_indices = point_indices;
   }
   reader.readAsArrayBuffer(file);
