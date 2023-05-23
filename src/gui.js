@@ -1,15 +1,17 @@
 import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks} from './script.js';
-import { alpha, generateAlpha, updateAlpha, alphaFromS, computePosterior } from './computation.js';
+import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
 import * as THREE from 'three';
 
 export let point_scale = 10;
-export let variance_scale = 0;
 export let vertex_change = new THREE.Vector3(0, 0, 0);
 export let pca_index = 0;
 
 let gui, vertex_folder;
+let alpha_scale = new Array(10).fill(0);
+let alpha_controllers = new Array();
+let do_update_mesh = true;
 let exported_file = null;
 
 export function initGui() {
@@ -33,26 +35,42 @@ export function initGui() {
 
     gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
 
-    let variance_folder = gui.addFolder("pca variance");
-    let controller_variance_scale = variance_folder.add({variance_scale}, "variance_scale", -3, 3, 0.001).name("variance scale")
-        .onChange(value => {
-            variance_scale = value;
-            updateMesh(updateAlpha());
+    {
+        let alpha_folder = gui.addFolder("pca alpha");
+        for (let i = 0; i < alpha_scale.length; i++) {
+            alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("index " + i)
+            .onChange(value => {
+                if (do_update_mesh) updateMesh(updateAlpha(value, i));
+                // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
+            }));
+        }
+        let alpha_indexed_folder = alpha_folder.addFolder("manually define index");
+        let controller_alpha_scale = alpha_indexed_folder.add({alpha_scale: alpha_scale[pca_index]}, "alpha_scale", -3, 3, 0.001).name("alpha scale")
+            .onChange(value => {
+                if (do_update_mesh) updateMesh(updateAlpha(value, pca_index));
+                alpha_controllers[pca_index].setValue(value);
+            });
+        let controller_pca_index = alpha_indexed_folder.add({pca_index}, "pca_index", 0, 10, 1).name("pca index")
+            .onChange(value => {
+                pca_index = value;
+                controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
         });
-    let controller_pca_index = variance_folder.add({pca_index}, "pca_index", 0, 20, 1).name("pca index")
-        .onChange(value => {
-            pca_index = value;
-            controller_variance_scale.setValue(alpha.arraySync()[pca_index]);
-        });
-    variance_folder.add({reset_variance_scale: function() {
-        generateAlpha();
-        controller_variance_scale.setValue(alpha.arraySync()[0]);
-        controller_pca_index.setValue(0);
-        updateMesh(updateAlpha());
-    }}, "reset_variance_scale").name("generate random normally distributed values");
-    variance_folder.add({alpha_from_s: function() {
-        updateMesh(alphaFromS());
-    }}, "alpha_from_s").name("calculate alpha from s");
+        alpha_folder.add({reset_alpha_scale: function() {
+            generateAlpha();
+            controller_alpha_scale.setValue(alpha.arraySync()[0]);
+            controller_pca_index.setValue(0);
+            updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+            updateAlphaScale();
+        }}, "reset_alpha_scale").name("generate random normally distributed values");
+        alpha_folder.add({alpha_from_s: function() {
+            updateMesh(alphaFromS());
+            updateAlphaScale();
+        }}, "alpha_from_s").name("calculate alpha from s");
+        alpha_folder.add({alpha_from_observations: function() {
+            updateMesh(alphaFromObservations());
+            updateAlphaScale();
+        }}, "alpha_from_observations").name("calculate alpha from observations");
+    }
 
     vertex_folder = gui.addFolder("change vertex position");
     vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
@@ -62,7 +80,7 @@ export function initGui() {
     vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
         .onChange(value => vertex_change.z = value);
     vertex_folder.add({reset_orig: function() {
-        reset_vertex_gui();
+        resetVertexGui();
         reset_orig_flag = true;
     }}, "reset_orig").name("reset to original position");
     vertex_folder.add({reset_all: function() {
@@ -109,7 +127,15 @@ export function initGui() {
 
 }
 
-export function reset_vertex_gui() {
+export function resetVertexGui() {
     vertex_change.set(0, 0, 0);
     vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
-  }
+}
+
+function updateAlphaScale() {
+    do_update_mesh = false;
+    for (let i = 0; i < alpha_controllers.length; i++) {
+        alpha_controllers[i].setValue(alpha.arraySync()[i]);
+    }
+    do_update_mesh = true;
+}

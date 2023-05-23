@@ -1,4 +1,3 @@
-import {variance_scale, pca_index} from './gui.js';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
 import { Matrix } from 'ml-matrix';
@@ -48,9 +47,9 @@ export function generateAlpha() {
 }
 
 // updates the shape vector with given alpha user inputs
-export function updateAlpha() {
+export function updateAlpha(value, index) {
     alpha = tf.buffer(alpha.shape, alpha.dtype, alpha.dataSync());
-    alpha.set(variance_scale, pca_index);
+    alpha.set(value, index);
     alpha = alpha.toTensor();
 
     s = mean.add(Q.dot(alpha)); // corresponds to formula (1) in the paper
@@ -75,6 +74,48 @@ export function alphaFromS() {
     return s.arraySync();
 }
 
+export function alphaFromObservations() {
+    // get changed positions of model aka observations
+    let changed_indices = new Array;
+    const nose_tip_id = 8156 * 3;
+    changed_indices.push(nose_tip_id);
+    changed_indices.push(nose_tip_id+1);
+    changed_indices.push(nose_tip_id+2);
+    
+    console.log("prior position of nose tip");
+    console.log(s.arraySync()[nose_tip_id]);
+    console.log(s.arraySync()[nose_tip_id+1]);
+    console.log(s.arraySync()[nose_tip_id+2]);
+
+    // select those elements and rows of s, mean and Q that correspond to the given observations
+    // corresponds to formula (4) in the paper
+    let s_g = new Array;
+    let mean_g = new Array;
+    let Q_g = new Array;
+    changed_indices.forEach(changed_index => {
+        s_g.push(s.arraySync()[changed_index] + 10);
+        mean_g.push(mean.arraySync()[changed_index]);
+        Q_g.push(Q.arraySync()[changed_index]);
+    });
+    s_g = tf.tensor(s_g);
+    mean_g = tf.tensor(mean_g);
+    Q_g = tf.tensor(Q_g);
+
+    let Q_g_inv = pseudoInverse(new Matrix(Q_g.arraySync()));
+    Q_g_inv = tf.tensor(Q_g_inv.to2DArray());
+
+    console.log("alpha before: ", alpha.arraySync());
+    alpha = Q_g_inv.dot(s_g.sub(mean_g));
+    console.log("alpha from observations: ", alpha.arraySync());
+    s = mean.add(Q.dot(alpha));
+
+    console.log("posterior position of nose tip");
+    console.log(s.arraySync()[nose_tip_id]);
+    console.log(s.arraySync()[nose_tip_id+1]);
+    console.log(s.arraySync()[nose_tip_id+2]);
+    return s.arraySync();
+}
+
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
 // calculates the posterior mean of the given model
 export function computePosterior(model) {
@@ -85,6 +126,9 @@ export function computePosterior(model) {
 
     const model_position = model.geometry.getAttribute('position').array;
     model_position[nose_tip_id] += 10;  // manually added observation at the tip of the nose (bfm.h5 model)
+    s = s.arraySync();
+    s[nose_tip_id] += 10;
+    s = tf.tensor(s);
 
     const model_old_pos = model.geometry.getAttribute('original_position').array;
 
@@ -150,7 +194,7 @@ export function computePosterior(model) {
     console.log(posterior_mean.arraySync()[nose_tip_id+3]);
     console.log(posterior_mean.arraySync()[nose_tip_id+4]);
     console.log(posterior_mean.arraySync()[nose_tip_id+5]);
-    
+
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();
   

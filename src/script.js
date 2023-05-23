@@ -1,5 +1,5 @@
 import './style.css';
-import {initGui, point_scale, vertex_change, reset_vertex_gui} from './gui.js';
+import {initGui, point_scale, vertex_change, resetVertexGui} from './gui.js';
 import {loadValues} from './computation.js';
 import * as THREE from 'three';
 import * as Math from 'mathjs';
@@ -47,7 +47,7 @@ function init() {
   {
     const skyColor = 0xB1E1FF;  // light blue
     const groundColor = 0xB97A20;  // brownish orange
-    const intensity = 1;
+    const intensity = 0.5;
     const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
     scene.add(light);
   }  
@@ -56,7 +56,7 @@ function init() {
   {
     light = new THREE.DirectionalLight();
     light.position.set(0, 2, -10);
-    light.intensity = 0.5;
+    light.intensity = 0.0;
     scene.add(light);
   }
 
@@ -284,7 +284,7 @@ function updateMarkedVertex(position) {
   if (marked_vertex == undefined)
     marked_vertex = createPoint(position);
   else {
-    reset_vertex_gui();
+    resetVertexGui();
     marked_vertex.position.set(...position);
     marked_vertex.original_position.set(...position);
   }
