@@ -463,19 +463,6 @@ function onMouseMove(event) {
 }
 
 
-function onWheel(event) {
-  if (marked_vertex == undefined) {
-    controls.enableZoom = true;
-    return;
-  }
-  controls.enableZoom = false;
-  let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(mouse, camera);
-  let scroll_vector = raycaster.ray.direction.multiplyScalar(event.deltaY * 0.05);
-  
-  if (scroll_vector.length() > vertex_change.length()) vertex_change = scroll_vector;
-}
-
 function loadInput(event) {
   let file = document.getElementById('input').files[0];
   
