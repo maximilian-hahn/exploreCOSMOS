@@ -3,6 +3,8 @@ import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, c
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
 import * as THREE from 'three';
+import Toastify from 'toastify-js';
+import "toastify-js/src/toastify.css";
 
 export let point_scale = 10;
 export let vertex_change = new THREE.Vector3(0, 0, 0);
@@ -140,4 +142,13 @@ function updateAlphaScale() {
         alpha_controllers[i].setValue(alpha.arraySync()[i]);
     }
     do_update_mesh = true;
+}
+
+export function messageToUser(message) {
+    Toastify({
+        text: message,
+        duration: 5000,
+        gravity: "bottom",
+        position: "center"
+    }).showToast();
 }

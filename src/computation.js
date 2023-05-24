@@ -140,7 +140,6 @@ export function computePosterior(model) {
                 changed_indices.push(i);
                 changed_indices.push(i+1);
                 changed_indices.push(i+2);
-                console.log("HERE LANDMARK FOUND");
                 return;
             }
         });
@@ -148,13 +147,16 @@ export function computePosterior(model) {
 
     // select those elements and rows of s, mean and Q that correspond to the given observations
     // corresponds to formula (4) in the paper
+    let s_array = s.arraySync();
+    let mean_array = mean.arraySync();
+    let Q_array = Q.arraySync();
     let s_g = new Array;
     let mean_g = new Array;
     let Q_g = new Array;
     changed_indices.forEach(changed_index => {
-        s_g.push(s.arraySync()[changed_index]);
-        mean_g.push(mean.arraySync()[changed_index]);
-        Q_g.push(Q.arraySync()[changed_index]);
+        s_g.push(s_array[changed_index]);
+        mean_g.push(mean_array[changed_index]);
+        Q_g.push(Q_array[changed_index]);
     });
     s_g = tf.tensor(s_g);
     mean_g = tf.tensor(mean_g);

@@ -1,7 +1,8 @@
 import './style.css';
-import {initGui, point_scale, vertex_change, resetVertexGui} from './gui.js';
+import {initGui, point_scale, vertex_change, resetVertexGui, messageToUser} from './gui.js';
 import {loadValues} from './computation.js';
 import * as THREE from 'three';
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as Math from 'mathjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
@@ -255,24 +256,23 @@ function createPoint(position) {
 
 export function handleLandmarks() {
 	if (marked_vertex == undefined) {
-		console.log("mark a vertex to create a landmark for it");
+		messageToUser("mark a vertex to create a landmark for it");
 		return;
 	}
 	let exisiting_landmark = model.userData.landmarks.find(landmark => landmark.position.equals(marked_vertex.position));
 	if (exisiting_landmark != undefined) {
 		scene.remove(exisiting_landmark);
-		console.log("existing landmark removed");
+		messageToUser("existing landmark removed");
 	} else {
 		createLandmark(marked_vertex.position);
-		console.log("landmark created");
+		messageToUser("landmark created");
 	}
 }
 
 function createLandmark(position) {
-	let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x00FF00}));
+	let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshPhongMaterial({color: 0x00FF00}));
 	landmark.position.set(...position);
 	landmark.name = "landmark: " + position.toArray();
-	console.log(landmark.name); // TODO
 
 	scene.add(landmark);
 	model.userData.landmarks.push(landmark);
@@ -280,10 +280,22 @@ function createLandmark(position) {
 }
 
 export function loadLandmarks() {
+	// remove all existing landmarks
+	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
+
+	// load the predefined landmarks
+	let template_vertices = getVertices(scene.getObjectByName("template_model"));
+	let model_vertices = getVertices(model);
 	model.userData.predefined_landmarks.forEach(predefined_landmark => {
-		createLandmark(new THREE.Vector3(...predefined_landmark.coordinates));
+		// as the predefined landmarks have the template as positional reference
+		// the corresponding indices have to be determined to get the actual models position
+		for (let i = 0; i < template_vertices.length; i++) {
+			if (template_vertices[i].equals(new THREE.Vector3(...predefined_landmark.coordinates))) {
+				predefined_landmark.index = i;
+			}
+		}
+		createLandmark(model_vertices[predefined_landmark.index]);
 	});
-	console.log(model.userData.landmarks);
 }
 
 function updateMarkedVertex(position) {
@@ -363,16 +375,16 @@ function loadMesh(vertices, indices, name) {
 
 export function updateMesh(vertices) {
 	let predefined_landmarks = model.userData.predefined_landmarks;
-	let point_indices = model.userData.point_indices;
+	let vertex_indices = model.userData.vertex_indices;
 
 	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
 	scene.remove(scene.getObjectByName("model"));
 	scene.remove(scene.getObjectByName("points"));
-	loadMesh(vertices, point_indices, "model");
+	loadMesh(vertices, vertex_indices, "model");
 	drawVertices(model, "points");
 
 	model.userData.predefined_landmarks = predefined_landmarks;
-	model.userData.point_indices = point_indices;
+	model.userData.vertex_indices = vertex_indices;
 }
 
 function centerMeshPosition(mesh_position) {
@@ -393,14 +405,16 @@ export function switchModels() {
 	model.visible = false;
 	model_vertices.visible = false;
 	if (model.name == "template_model") {
-			model = scene.getObjectByName("model");
-			model_vertices = scene.getObjectByName("points");
+		model = scene.getObjectByName("model");
+		model_vertices = scene.getObjectByName("points");
+		messageToUser("model");
 	} else if (model.name == "model") {
-			model = scene.getObjectByName("template_model");
-			model_vertices = scene.getObjectByName("template_points");
+		model = scene.getObjectByName("template_model");
+		model_vertices = scene.getObjectByName("template_points");
+		messageToUser("template model");
 	}
 	model.visible = true;
-	model_vertices.visible = true;
+	model_vertices.visible = false;
 }
 
 
@@ -414,7 +428,7 @@ function onMouseDown(event) {
 	if (window.event.ctrlKey) { // set marked vertex with crtl + click
 		let intersects = raycaster.intersectObject(model);
 		if (intersects.length == 0) {
-			console.log("no intersection with the model found");
+			messageToUser("no intersection with the model found");
 			scene.remove(scene.getObjectByName("marked vertex"));
 			marked_vertex = undefined;
 			return;
@@ -424,11 +438,19 @@ function onMouseDown(event) {
 		return;
 	}
 	
-	// change marked vertex position
 	if (marked_vertex == undefined) return;
+
+	// vertices marked with landmarks should not be able to move
+	for (let i = 0; i < model.userData.landmarks.length; i++) {
+		if (model.userData.landmarks[i].position.equals(marked_vertex.position)) {
+			messageToUser("Vertices marked with landmarks cannot move");
+			return;
+		}
+	}
+	// change marked vertex position
 	let intersects = raycaster.intersectObject(marked_vertex);
 	if (intersects.length == 0) {
-		console.log("no intersection with the arrow axes found");
+		messageToUser("no intersection with the arrow axes found");
 		return;
 	}
 	console.log(intersects[0].object.name);
@@ -490,11 +512,12 @@ function loadInput(event) {
 		let template_points = f.get(path + 'representer/points');  // coordinates of template model points
 		let template_cells = f.get(path + 'representer/cells');    // indices of template model for triangles
 
-		// weird I would have to do this but input has flipped dimensions?
-		let point_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
-		
+		// weird I would have to do this but input has flipped dimensions? -> probably row/column major differences
+		let vertex_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
+		let template_vertices = Math.flatten(Math.transpose(Math.reshape(template_points.value, template_points.shape)))
+
 		scene.remove(scene.getObjectByName("template_model"));
-		loadMesh((template_points.value), point_indices, "template_model");
+		loadMesh(template_vertices, vertex_indices, "template_model");
 
 		scene.remove(scene.getObjectByName("template_points"));
 		drawVertices(model, "template_points");
@@ -506,14 +529,13 @@ function loadInput(event) {
 		loadValues(f, path);
 
 		scene.remove(scene.getObjectByName("model"));
-		loadMesh(f.get(path + 'model/mean').value, point_indices, "model");
+		loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
 
 		scene.remove(scene.getObjectByName("points"));
 		drawVertices(model, "points");
 
 		model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
-		model.userData.point_indices = point_indices;
+		model.userData.vertex_indices = vertex_indices;
 	}
 	reader.readAsArrayBuffer(file);
 }
-
