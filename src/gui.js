@@ -18,10 +18,9 @@ let exported_file = null;
 
 export function initGui() {
     gui = new GUI();
-    gui.addColor({color: '#000000'}, 'color')
-        .name('model color')
+    gui.addColor({color: '#ffffff'}, 'color').name('model color')
         .onChange(function(e) {
-        model.material.color = new THREE.Color(e);
+            model.material.color = new THREE.Color(e);
     });
     gui.add({show_vertices: function() {
         let points = scene.getObjectByName("points");
@@ -60,12 +59,17 @@ export function initGui() {
         });
         alpha_folder.add({reset_alpha_scale: function() {
             do_update_mesh = false;
-            generateAlpha();
+            generateAlpha("random");
             controller_pca_index.setValue(0);
             updateMesh(updateAlpha(alpha.arraySync()[0], 0));
             do_update_mesh = true;
             updateAlphaScale();
         }}, "reset_alpha_scale").name("generate random normally distributed values");
+        alpha_folder.add({set_alpha_zero: function() {
+            generateAlpha("zero");
+            updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+            updateAlphaScale();
+        }}, "set_alpha_zero").name("set all alpha values to 0");
         alpha_folder.add({alpha_from_s: function() {
             updateMesh(alphaFromS());
             updateAlphaScale();
@@ -76,33 +80,33 @@ export function initGui() {
         }}, "alpha_from_observations").name("calculate alpha from observations");
     }
 
-    vertex_folder = gui.addFolder("change vertex position");
-    vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change vertex x")
+    vertex_folder = gui.addFolder("vertex settings");
+    vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change marked x")
         .onChange(value => vertex_change.x = value);
-    vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change vertex y")
+    vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change marked y")
         .onChange(value => vertex_change.y = value);
-    vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change vertex z")
+    vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change marked z")
         .onChange(value => vertex_change.z = value);
     vertex_folder.add({reset_orig: function() {
         resetVertexGui();
         resetVertex();
-    }}, "reset_orig").name("reset vertex to original position");
+    }}, "reset_orig").name("reset marked vertex to original position");
     vertex_folder.add({reset_all: function() {
         resetVertexGui();
         resetAllVertices();
-    }}, "reset_all").name("reset all vertices");
+    }}, "reset_all").name("reset all vertices to their original position");
 
-    let light_folder = gui.addFolder("change directional light");
-    light_folder.add(light.position, "x", -50, 50, 0.5).name("light x")
+    let light_folder = gui.addFolder("light settings");
+    light_folder.add(light.position, "x", -50, 50, 0.5).name("directional light x")
         .onChange(value => light.position.x = value);
-    light_folder.add(light.position, "y", -50, 50, 0.5).name("light y")
+    light_folder.add(light.position, "y", -50, 50, 0.5).name("directional light y")
         .onChange(value => light.position.y = value);
-    light_folder.add(light.position, "z", -50, 50, 0.5).name("light z")
+    light_folder.add(light.position, "z", -50, 50, 0.5).name("directional light z")
         .onChange(value => light.position.z = value);
-    light_folder.add(light, "intensity", 0, 1, 0.05).name("light intensity")
+    light_folder.add(light, "intensity", 0, 1, 0.05).name("directional light intensity")
         .onChange(value => light.intensity = value);
 
-    let camera_folder = gui.addFolder("change camera settings");
+    let camera_folder = gui.addFolder("camera settings");
     camera_folder.add({y_axis: function() {
         if (camera.up.y == 1) camera.up.set(0, -1, 0);
         else  camera.up.set(0, 1, 0);

@@ -30,7 +30,7 @@ export function loadValues(file, path) {
     stddev = variance.sqrt();
     Q = Q.mul(stddev);
 
-    alpha = tf.zeros(variance.shape);   // generateAlpha();
+    generateAlpha("zero");
 
     s = mean.clone();   // as alpha is initialized with zeros, s equals to mean
 
@@ -38,12 +38,17 @@ export function loadValues(file, path) {
 }
 
 // generates random normally distributed values for alpha
-export function generateAlpha() {
-    alpha = new Array;
-    for (let i = 0; i < variance.shape; i++) {
-        alpha.push(normalDistribution());
+export function generateAlpha(mode) {
+    if (mode == "zero") {
+        alpha = tf.zeros(variance.shape);
     }
-    alpha = tf.tensor(alpha);
+    else if (mode == "random") {
+        alpha = new Array;
+        for (let i = 0; i < variance.shape; i++) {
+            alpha.push(normalDistribution());
+        }
+        alpha = tf.tensor(alpha);
+    }
 }
 
 // updates the shape vector with given alpha user inputs

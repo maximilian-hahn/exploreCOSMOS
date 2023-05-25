@@ -217,7 +217,7 @@ function update() {
 		for (let i = 0; i < current_pos.array.length; i++) {
 			current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
 		}
-		scene.remove(marked_vertex);
+		removeMarkedVertex();
 
 		current_pos.needsUpdate = true;
 		model.geometry.computeBoundingSphere();
@@ -236,34 +236,38 @@ function createPoint(position) {
 	point.marked_x = false;
 	point.marked_y = false;
 	point.marked_z = false;
+	point.material.depthTest = false;
 	
 	const arrow_x = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xff0000, 0.5, 0.5);
 	arrow_x.name = "x_axis";
-	arrow_x.children[0].name = "x_axis";
-	arrow_x.children[1].name = "x_axis";
-	arrow_x.children[0].material.transparent = true;
-	arrow_x.children[0].material.opacity = 0.5;
-	arrow_x.children[1].material.transparent = true;
-	arrow_x.children[1].material.opacity = 0.5;
+	arrow_x.children.forEach(child => {
+		child.name = "x_axis";
+		child.material.transparent = true;
+		child.material.opacity = 0.5;
+		child.material.depthTest = false;
+	});
 	const arrow_y = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1, 0x00ff00, 0.5, 0.5);
 	arrow_y.name = "y_axis";
-	arrow_y.children[0].name = "y_axis";
-	arrow_y.children[1].name = "y_axis";
-	arrow_y.children[0].material.transparent = true;
-	arrow_y.children[0].material.opacity = 0.5;
-	arrow_y.children[1].material.transparent = true;
-	arrow_y.children[1].material.opacity = 0.5;
+	arrow_y.children.forEach(child => {
+		child.name = "y_axis";
+		child.material.transparent = true;
+		child.material.opacity = 0.5;
+		child.material.depthTest = false;
+	});
 	const arrow_z = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1, 0x0000ff, 0.5, 0.5);
 	arrow_z.name = "z_axis";
-	arrow_z.children[0].name = "z_axis";
-	arrow_z.children[1].name = "z_axis";
-	arrow_z.children[0].material.transparent = true;
-	arrow_z.children[0].material.opacity = 0.5;
-	arrow_z.children[1].material.transparent = true;
-	arrow_z.children[1].material.opacity = 0.5;
+	arrow_z.children.forEach(child => {
+		child.name = "z_axis";
+		child.material.transparent = true;
+		child.material.opacity = 0.5;
+		child.material.depthTest = false;
+	});
 	point.add(arrow_x);
 	point.add(arrow_y);
 	point.add(arrow_z);
+
+	// arrowhelper should always render on top
+	point.renderOrder = 999;
 	
 	scene.add(point);
 
@@ -333,7 +337,7 @@ function getVertices(object) {
 	return vertices;
 }
 
-function drawNearestVertex(clicked_position) {
+function markNearestVertex(clicked_position) {
 	let vertex_positions = getVertices(model);
 	let nearestPoint = vertex_positions[0];
 	marked_vertex_index = 0;
@@ -344,8 +348,15 @@ function drawNearestVertex(clicked_position) {
 		}
 	};
 	console.log("position of marked vertex: ", nearestPoint);
-	console.log("Index of vertex: ", marked_vertex_index);
+	console.log("index of marked vertex: ", marked_vertex_index);
+	messageToUser("index of marked vertex: " + marked_vertex_index);
 	updateMarkedVertex(nearestPoint);
+}
+
+function removeMarkedVertex() {
+	scene.remove(scene.getObjectByName("marked vertex"));
+	messageToUser("vertex no longer marked");
+	marked_vertex = undefined;
 }
 
 function drawVertices(mesh, name) {
@@ -392,6 +403,7 @@ function loadMesh(vertices, indices, name) {
 export function updateMesh(vertices) {
 	let predefined_landmarks = model.userData.predefined_landmarks;
 	let vertex_indices = model.userData.vertex_indices;
+	let model_color = model.material.color;
 
 	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
 	scene.remove(scene.getObjectByName("model"));
@@ -401,6 +413,7 @@ export function updateMesh(vertices) {
 
 	model.userData.predefined_landmarks = predefined_landmarks;
 	model.userData.vertex_indices = vertex_indices;
+	model.material.color = model_color;
 }
 
 function centerMeshPosition(mesh_position) {
@@ -444,13 +457,15 @@ function onMouseDown(event) {
 	if (window.event.ctrlKey) { // set marked vertex with crtl + click
 		let intersects = raycaster.intersectObject(model);
 		if (intersects.length == 0) {
-			messageToUser("no intersection with the model found");
-			scene.remove(scene.getObjectByName("marked vertex"));
-			marked_vertex = undefined;
+			if (marked_vertex == undefined) 
+				messageToUser("no intersection with the model found");
+			else {
+				removeMarkedVertex();
+			}
 			return;
 		}
 		console.log("intersection point: ", intersects[0].point);
-		drawNearestVertex(intersects[0].point);
+		markNearestVertex(intersects[0].point);
 		return;
 	}
 	
@@ -507,6 +522,10 @@ function onMouseMove(event) {
 
 
 function loadInput(event) {
+	let link = document.getElementById("downloadlink");
+	link.href = undefined;
+	link.style.display = 'none';
+
 	let file = document.getElementById('input').files[0];
 	
 	// hdf5 loader  https://github.com/usnistgov/jsfive
