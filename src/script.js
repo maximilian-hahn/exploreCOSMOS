@@ -1,5 +1,5 @@
 import './style.css';
-import {initGui, point_scale, vertex_change, resetVertexGui, messageToUser} from './gui.js';
+import {initGui, point_scale, vertex_change, resetVertexGui, messageToUser, hideDownloadLink} from './gui.js';
 import {loadValues} from './computation.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -398,6 +398,8 @@ function loadMesh(vertices, indices, name) {
 	console.log(name + ": ", mesh);
 	model = mesh;
 	scene.add(mesh);
+
+	hideDownloadLink();
 }
 
 export function updateMesh(vertices) {
@@ -522,10 +524,6 @@ function onMouseMove(event) {
 
 
 function loadInput(event) {
-	let link = document.getElementById("downloadlink");
-	link.href = undefined;
-	link.style.display = 'none';
-
 	let file = document.getElementById('input').files[0];
 	
 	// hdf5 loader  https://github.com/usnistgov/jsfive

@@ -151,3 +151,9 @@ export function messageToUser(message) {
         position: "center"
     }).showToast();
 }
+
+export function hideDownloadLink() {
+    let link = document.getElementById("downloadlink");
+	link.href = undefined;
+	link.style.display = 'none';
+}
