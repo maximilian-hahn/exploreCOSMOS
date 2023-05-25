@@ -14,8 +14,9 @@ export let model, model_vertices;
 let marked_vertex, marked_vertex_index;
 let canvas, renderer, raycaster;
 let axes_scene;
-let reset_orig_flag = false;
 let mouse_down = false;
+let reset_vertex_flag = false;
+let reset_all_flag = false;
 
 init();
 animate();
@@ -185,32 +186,47 @@ function update() {
 	});
 
 	if (vertex_change.length() > 0) {
-		const model_position = model.geometry.getAttribute('position');
-		let model_old_pos = model_position;
-		let marked_vertex_old_pos = marked_vertex.position;
-		if (reset_orig_flag) {
-			model_old_pos = model.geometry.getAttribute('original_position');
-			marked_vertex_old_pos = marked_vertex.original_position;
-			reset_orig_flag = false;
-		}
-
-		model_position.setXYZ(marked_vertex_index, 
-			model_old_pos.getX(marked_vertex_index) + vertex_change.x, 
-			model_old_pos.getY(marked_vertex_index) + vertex_change.y, 
-			model_old_pos.getZ(marked_vertex_index) + vertex_change.z);
-		
-		model_position.needsUpdate = true;
-		model.geometry.computeBoundingSphere();
-		model.geometry.computeVertexNormals();
-
-		marked_vertex.position.set(marked_vertex_old_pos.x + vertex_change.x, marked_vertex_old_pos.y + vertex_change.y, marked_vertex_old_pos.z + vertex_change.z);
+		const current_pos = model.geometry.getAttribute('position');
+		current_pos.setXYZ(marked_vertex_index, 
+			current_pos.getX(marked_vertex_index) + vertex_change.x, 
+			current_pos.getY(marked_vertex_index) + vertex_change.y, 
+			current_pos.getZ(marked_vertex_index) + vertex_change.z);
+		marked_vertex.position.set(marked_vertex.position.x + vertex_change.x,
+			marked_vertex.position.y + vertex_change.y, marked_vertex.position.z + vertex_change.z);
 
 		vertex_change.set(0, 0, 0);
+		current_pos.needsUpdate = true;
+		model.geometry.computeBoundingSphere();
+		model.geometry.computeVertexNormals();
+	}
+	if (reset_vertex_flag) {
+		const current_pos = model.geometry.getAttribute('position');
+		const orig_pos = model.geometry.getAttribute('original_position');
+		current_pos.setXYZ(marked_vertex_index, orig_pos.getX(marked_vertex_index),
+			orig_pos.getY(marked_vertex_index), orig_pos.getZ(marked_vertex_index));
+		marked_vertex.position.set(orig_pos.getX(marked_vertex_index),
+			orig_pos.getY(marked_vertex_index), orig_pos.getZ(marked_vertex_index));
+
+		current_pos.needsUpdate = true;
+		model.geometry.computeBoundingSphere();
+		model.geometry.computeVertexNormals();
+		reset_vertex_flag = false;
+	} else if (reset_all_flag) {
+		const current_pos = model.geometry.getAttribute('position');
+		const orig_pos = model.geometry.getAttribute('original_position');
+		for (let i = 0; i < current_pos.array.length; i++) {
+			current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
+		}
+		scene.remove(marked_vertex);
+
+		current_pos.needsUpdate = true;
+		model.geometry.computeBoundingSphere();
+		model.geometry.computeVertexNormals();
+		reset_all_flag = false;
 	}
 
 	controls.update();
 }
-
 
 function createPoint(position) {
 	let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF0000}));
@@ -538,4 +554,16 @@ function loadInput(event) {
 		model.userData.vertex_indices = vertex_indices;
 	}
 	reader.readAsArrayBuffer(file);
+}
+
+export function resetVertex() {
+	if (marked_vertex == undefined) {
+		messageToUser("You have to mark a vertex to reset its position");
+		return;
+	}
+	reset_vertex_flag = true;
+}
+
+export function resetAllVertices() {
+	reset_all_flag = true;
 }

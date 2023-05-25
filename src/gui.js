@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks} from './script.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices} from './script.js';
 import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
@@ -85,16 +85,11 @@ export function initGui() {
         .onChange(value => vertex_change.z = value);
     vertex_folder.add({reset_orig: function() {
         resetVertexGui();
-        reset_orig_flag = true;
-    }}, "reset_orig").name("reset to original position");
+        resetVertex();
+    }}, "reset_orig").name("reset vertex to original position");
     vertex_folder.add({reset_all: function() {
-        const current_pos = model.geometry.getAttribute('position');
-        const orig_pos = model.geometry.getAttribute('original_position');
-        for (let i = 0; i < current_pos.array.length; i++) {
-        current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
-        }
-        current_pos.needsUpdate = true;
-        model.geometry.computeBoundingSphere();
+        resetVertexGui();
+        resetAllVertices();
     }}, "reset_all").name("reset all vertices");
 
     let light_folder = gui.addFolder("change directional light");
