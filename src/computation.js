@@ -171,6 +171,8 @@ export function computePosterior(model) {
     Q_g_inv = tf.tensor(Q_g_inv.to2DArray());
 
     alpha = Q_g_inv.dot(s_g.sub(mean_g));
+    console.log("alpha: ", alpha.arraySync());
+
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
 

@@ -395,7 +395,6 @@ function loadMesh(vertices, indices, name) {
 	mesh.geometry.attributes.original_position = position.clone();
 	mesh.name = name;
 	mesh.userData.landmarks = new Array;
-	console.log(name + ": ", mesh);
 	model = mesh;
 	scene.add(mesh);
 
@@ -524,6 +523,15 @@ function onMouseMove(event) {
 
 
 function loadInput(event) {
+	// remove exisiting model
+	scene.remove(scene.getObjectByName("template_model"));
+	scene.remove(scene.getObjectByName("template_points"));
+	scene.remove(scene.getObjectByName("model"));
+	scene.remove(scene.getObjectByName("points"));
+
+	let loader = document.getElementById('spinner');
+	loader.style.display = "inline-block";
+
 	let file = document.getElementById('input').files[0];
 	
 	// hdf5 loader  https://github.com/usnistgov/jsfive
@@ -549,10 +557,8 @@ function loadInput(event) {
 		let vertex_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
 		let template_vertices = Math.flatten(Math.transpose(Math.reshape(template_points.value, template_points.shape)))
 
-		scene.remove(scene.getObjectByName("template_model"));
 		loadMesh(template_vertices, vertex_indices, "template_model");
 
-		scene.remove(scene.getObjectByName("template_points"));
 		drawVertices(model, "template_points");
 
 		model.visible = false;
@@ -561,14 +567,19 @@ function loadInput(event) {
 		// load prior values for posterior computation
 		loadValues(f, path);
 
-		scene.remove(scene.getObjectByName("model"));
 		loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
 
-		scene.remove(scene.getObjectByName("points"));
 		drawVertices(model, "points");
 
-		model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
+		try {
+			model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
+		} catch(error) {
+			console.log(error + " -> no landmarks available");
+		}
+		
 		model.userData.vertex_indices = vertex_indices;
+
+		loader.style.display = "none";
 	}
 	reader.readAsArrayBuffer(file);
 }
