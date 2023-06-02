@@ -1,7 +1,14 @@
 {
+  "name": "GUI SSM",
+  "version": "0.1",
+  "repository": {
+    "url": "git+https://github.com/maximilian-hahn/BA.git"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "build": "webpack --mode=development",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.4.0",
@@ -17,6 +24,7 @@
     "@types/dat.gui": "^0.7.7",
     "css-loader": "^6.7.3",
     "dat.gui": "^0.7.9",
+    "gh-pages": "^5.0.0",
     "html-webpack-plugin": "^5.5.0",
     "mini-css-extract-plugin": "^2.7.2",
     "style-loader": "^3.3.1",
