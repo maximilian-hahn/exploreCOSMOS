@@ -29,7 +29,6 @@ function init() {
 
 	camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100000);
 	camera.position.set(0, 0, 150);
-	console.log(camera);
 
 	controls = new OrbitControls(camera, canvas);
 	// controls.maxDistance = 1;
@@ -186,7 +185,7 @@ function update() {
 		if (element.name == "marked vertex" || element.name.startsWith("landmark")) element.scale.setScalar(point_scale);
 	});
 	
-	if (vertex_change.length() > 0 || internal_vertex_change.update) {
+	if ((vertex_change.length() > 0 || internal_vertex_change.update) && marked_vertex != undefined) {
 		const current_pos = model.geometry.getAttribute('position');
 		const orig_pos = model.geometry.getAttribute('original_position');
 		let old_pos;
@@ -234,7 +233,8 @@ function update() {
 		for (let i = 0; i < current_pos.array.length; i++) {
 			current_pos.setXYZ(i, orig_pos.getX(i), orig_pos.getY(i), orig_pos.getZ(i));
 		}
-		removeMarkedVertex();
+		if (marked_vertex != undefined)
+			removeMarkedVertex();
 
 		current_pos.needsUpdate = true;
 		model.geometry.computeBoundingSphere();
@@ -364,14 +364,14 @@ function markNearestVertex(clicked_position) {
 			marked_vertex_index = i;
 		}
 	};
-	console.log("position of marked vertex: ", nearestPoint);
-	console.log("index of marked vertex: ", marked_vertex_index);
+	console.log("position of marked vertex: " + nearestPoint);
 	messageToUser("index of marked vertex: " + marked_vertex_index);
 	updateMarkedVertex(nearestPoint);
 }
 
 function removeMarkedVertex() {
 	scene.remove(scene.getObjectByName("marked vertex"));
+	resetVertexGui();
 	messageToUser("vertex no longer marked");
 	marked_vertex = undefined;
 }
@@ -386,7 +386,6 @@ function drawVertices(mesh, name) {
 	points.name = name;
 	if (model_vertices != undefined)
 		points.visible = model_vertices.visible;
-	// console.log(points);
 	model_vertices = points;
 	scene.add(points);
 }
@@ -502,7 +501,7 @@ function onMouseDown(event) {
 		messageToUser("no intersection with the arrow axes found");
 		return;
 	}
-	console.log(intersects[0].object.name);
+	messageToUser(intersects[0].object.name + " selected");
 	intersects[0].object.parent.children[0].material.opacity = 1;
 	intersects[0].object.parent.children[1].material.opacity = 1;
 	if (intersects[0].object.name == "x_axis") marked_vertex.marked_x = true;
@@ -591,7 +590,7 @@ function loadInput(event) {
 		try {
 			model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
 		} catch(error) {
-			console.log(error + " -> no landmarks available");
+			messageToUser(error + " -> no landmarks available");
 		}
 		
 		model.userData.vertex_indices = vertex_indices;
@@ -602,11 +601,12 @@ function loadInput(event) {
 }
 
 export function resetVertex() {
-	if (marked_vertex == undefined) {
+	if (marked_vertex == undefined)
 		messageToUser("You have to mark a vertex to reset its position");
-		return;
+	else {
+        resetVertexGui();
+		reset_vertex_flag = true;
 	}
-	reset_vertex_flag = true;
 }
 
 export function resetAllVertices() {

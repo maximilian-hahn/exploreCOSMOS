@@ -10,9 +10,10 @@ export let point_scale = 10;
 export let pca_index = 0;
 export let vertex_change = new THREE.Vector3(0, 0, 0);
 export let internal_vertex_change = new THREE.Vector3(0, 0, 0);
-export let vertex_folder;
+internal_vertex_change.update = false;
 
-let gui;
+let gui, vertex_folder;
+let vertex_controllers = new Array();
 let alpha_scale = new Array(10).fill(0);
 let alpha_controllers = new Array();
 let do_update_mesh = true;
@@ -34,6 +35,7 @@ export function initGui() {
     
     gui.add({posterior: function() {
         updateMesh(computePosterior(model));
+        updateAlphaScale();
     }}, "posterior").name("compute posterior");
 
     gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
@@ -83,20 +85,14 @@ export function initGui() {
     }
 
     vertex_folder = gui.addFolder("vertex settings");
-    vertex_folder.add(internal_vertex_change, "x", -256, 256, 0.01).name("change marked x")
-        .onChange(() => internal_vertex_change.update = true);
-    vertex_folder.add(internal_vertex_change, "y", -256, 256, 0.01).name("change marked y")
-        .onChange(() => internal_vertex_change.update = true);
-    vertex_folder.add(internal_vertex_change, "z", -256, 256, 0.01).name("change marked z")
-        .onChange(() => internal_vertex_change.update = true);
-    vertex_folder.add({reset_orig: function() {
-        resetVertexGui();
-        resetVertex();
-    }}, "reset_orig").name("reset marked vertex to original position");
-    vertex_folder.add({reset_all: function() {
-        resetVertexGui();
-        resetAllVertices();
-    }}, "reset_all").name("reset all vertices to their original position");
+    vertex_controllers.push(vertex_folder.add(internal_vertex_change, "x", -256, 256, 0.01).name("change marked x")
+        .onChange(() => internal_vertex_change.update = true));
+    vertex_controllers.push(vertex_folder.add(internal_vertex_change, "y", -256, 256, 0.01).name("change marked y")
+        .onChange(() => internal_vertex_change.update = true));
+    vertex_controllers.push(vertex_folder.add(internal_vertex_change, "z", -256, 256, 0.01).name("change marked z")
+        .onChange(() => internal_vertex_change.update = true));
+    vertex_folder.add({reset_orig: resetVertex}, "reset_orig").name("reset marked vertex to original position");
+    vertex_folder.add({reset_all: resetAllVertices}, "reset_all").name("reset all vertices to their original position");
 
     let light_folder = gui.addFolder("light settings");
     light_folder.add(light.position, "x", -50, 50, 0.5).name("directional light x")
@@ -128,13 +124,14 @@ export function initGui() {
         let link = document.getElementById("downloadlink");
         link.href = exported_file;
         link.style.display = 'block';
-    }}, "export_as_ply").name("export model as .ply file (download bottom left)");
+
+        messageToUser("Download the .ply file in the bottom left")
+    }}, "export_as_ply").name("export model as .ply file");
 
 }
 
 export function resetVertexGui() {
-    vertex_change.set(0, 0, 0);
-    vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
+    vertex_controllers.forEach(controller => controller.setValue(controller.initialValue));
 }
 
 export function updateVertexGui(value) {
@@ -158,6 +155,8 @@ export function messageToUser(message) {
         gravity: "bottom",
         position: "center"
     }).showToast();
+
+    console.log(message);
 }
 
 export function hideDownloadLink() {
