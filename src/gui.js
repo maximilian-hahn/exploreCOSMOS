@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices} from './script.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices} from './main.js';
 import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
@@ -7,10 +7,12 @@ import Toastify from 'toastify-js';
 import "toastify-js/src/toastify.css";
 
 export let point_scale = 10;
-export let vertex_change = new THREE.Vector3(0, 0, 0);
 export let pca_index = 0;
+export let vertex_change = new THREE.Vector3(0, 0, 0);
+export let internal_vertex_change = new THREE.Vector3(0, 0, 0);
+export let vertex_folder;
 
-let gui, vertex_folder;
+let gui;
 let alpha_scale = new Array(10).fill(0);
 let alpha_controllers = new Array();
 let do_update_mesh = true;
@@ -81,12 +83,12 @@ export function initGui() {
     }
 
     vertex_folder = gui.addFolder("vertex settings");
-    vertex_folder.add(vertex_change, "x", -50, 50, 0.5).name("change marked x")
-        .onChange(value => vertex_change.x = value);
-    vertex_folder.add(vertex_change, "y", -50, 50, 0.5).name("change marked y")
-        .onChange(value => vertex_change.y = value);
-    vertex_folder.add(vertex_change, "z", -50, 50, 0.5).name("change marked z")
-        .onChange(value => vertex_change.z = value);
+    vertex_folder.add(internal_vertex_change, "x", -256, 256, 0.01).name("change marked x")
+        .onChange(() => internal_vertex_change.update = true);
+    vertex_folder.add(internal_vertex_change, "y", -256, 256, 0.01).name("change marked y")
+        .onChange(() => internal_vertex_change.update = true);
+    vertex_folder.add(internal_vertex_change, "z", -256, 256, 0.01).name("change marked z")
+        .onChange(() => internal_vertex_change.update = true);
     vertex_folder.add({reset_orig: function() {
         resetVertexGui();
         resetVertex();
@@ -133,6 +135,12 @@ export function initGui() {
 export function resetVertexGui() {
     vertex_change.set(0, 0, 0);
     vertex_folder.__controllers.forEach(controller => controller.setValue(controller.initialValue));
+}
+
+export function updateVertexGui(value) {
+    vertex_folder.__controllers[0].setValue(value.x);
+    vertex_folder.__controllers[1].setValue(value.y);
+    vertex_folder.__controllers[2].setValue(value.z);
 }
 
 function updateAlphaScale() {

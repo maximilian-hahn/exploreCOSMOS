@@ -1,5 +1,5 @@
 import './style.css';
-import {initGui, point_scale, vertex_change, resetVertexGui, messageToUser, hideDownloadLink} from './gui.js';
+import {initGui, point_scale, vertex_change, internal_vertex_change, resetVertexGui, updateVertexGui, messageToUser, hideDownloadLink} from './gui.js';
 import {loadValues} from './computation.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -181,20 +181,37 @@ function render() {
 
 
 function update() {
+	// scales marked objects
 	scene.children.forEach(element => {
 		if (element.name == "marked vertex" || element.name.startsWith("landmark")) element.scale.setScalar(point_scale);
 	});
-
-	if (vertex_change.length() > 0) {
+	
+	if (vertex_change.length() > 0 || internal_vertex_change.update) {
 		const current_pos = model.geometry.getAttribute('position');
+		const orig_pos = model.geometry.getAttribute('original_position');
+		let old_pos;
+
+		if (internal_vertex_change.update) {	// the sliders are used for vertex changes
+			old_pos = orig_pos;
+			vertex_change.set(internal_vertex_change.x, internal_vertex_change.y, internal_vertex_change.z);
+		} else {	// the mouse is used for vertex changes
+			old_pos = current_pos;
+		}
+
 		current_pos.setXYZ(marked_vertex_index, 
-			current_pos.getX(marked_vertex_index) + vertex_change.x, 
-			current_pos.getY(marked_vertex_index) + vertex_change.y, 
-			current_pos.getZ(marked_vertex_index) + vertex_change.z);
-		marked_vertex.position.set(marked_vertex.position.x + vertex_change.x,
-			marked_vertex.position.y + vertex_change.y, marked_vertex.position.z + vertex_change.z);
+			old_pos.getX(marked_vertex_index) + vertex_change.x, 
+			old_pos.getY(marked_vertex_index) + vertex_change.y, 
+			old_pos.getZ(marked_vertex_index) + vertex_change.z);
+		marked_vertex.position.set(old_pos.getX(marked_vertex_index) + vertex_change.x,
+			old_pos.getY(marked_vertex_index) + vertex_change.y, old_pos.getZ(marked_vertex_index) + vertex_change.z);
+		
+		updateVertexGui(new THREE.Vector3(
+			current_pos.getX(marked_vertex_index) - orig_pos.getX(marked_vertex_index),
+			current_pos.getY(marked_vertex_index) - orig_pos.getY(marked_vertex_index),
+			current_pos.getZ(marked_vertex_index) - orig_pos.getZ(marked_vertex_index)));
 
 		vertex_change.set(0, 0, 0);
+		internal_vertex_change.update = false;
 		current_pos.needsUpdate = true;
 		model.geometry.computeBoundingSphere();
 		model.geometry.computeVertexNormals();
