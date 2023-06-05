@@ -1,3 +1,4 @@
+import { messageToUser } from './gui';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
 import { Matrix } from 'ml-matrix';
@@ -127,9 +128,6 @@ export function alphaFromObservations() {
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
 // calculates the posterior mean of the given model
 export function computePosterior(model) {
-    let spinner = document.getElementById('spinner');
-	spinner.style.display = "inline-block";
-
     // get changed positions of model aka observations
     let changed_indices = new Array;
 
@@ -153,6 +151,11 @@ export function computePosterior(model) {
                 return;
             }
         });
+    }
+
+    if (changed_indices.length == 0) {
+        messageToUser("You have to change the shape to compute the posterior");
+        return s.arraySync();
     }
 
     // select those elements and rows of s, mean and Q that correspond to the given observations
@@ -181,8 +184,6 @@ export function computePosterior(model) {
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
     mean = posterior_mean;
-
-    spinner.style.display = "none";
 
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();
