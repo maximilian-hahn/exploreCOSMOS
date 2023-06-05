@@ -6,7 +6,9 @@ https://maximilian-hahn.github.io/BA/
 
 ## Controls
 
-- LMB: move mouse to change camera angle around shape
+- Left Mouse Button: move mouse to change camera angle around shape
+
+- Mouse Wheel: zooms in and out
 
 - CTRL + LMB on shape: selects the closest vertex to the clicked position
   - LMB on x-axis: move mouse in screen's x-direction to move vertex along x-axis
