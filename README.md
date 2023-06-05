@@ -2,6 +2,8 @@
 
 Load in your statistical shape model .h5 file and interactively change the shape and compute the posterior mean of the model.
 
+https://maximilian-hahn.github.io/BA/
+
 ## Controls
 
 - LMB: move mouse to change camera angle around shape
