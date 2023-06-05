@@ -7,8 +7,8 @@ const {inverse, pseudoInverse} = require('ml-matrix');
  *  the math for posterior shape models is based on the paper:
  *  Albrecht, T. et al. "Posterior shape models" Medical Image Analysis 17 (2013) 959–973
  */
- 
-let mean;               // mean of current model
+
+let mean;               // current mean of loaded model
                         // saved as absolute positions
 let Q;                  // matrix containing principal components in each column * standard deviation
                         // principal components saved as deformations
@@ -19,11 +19,13 @@ export let alpha;       // coefficients for principal component matrix Q that fo
                         // values in range [-3;3]
 let s;                  // shape vector calculated using the formula s = mean + Q*alpha
 let reference_position; // vector of the reference shape
+let original_mean;
 
 
 // loads the necessary values for the posterior computation from the given .h5 file
 export function loadValues(file, path) {
-    mean = tf.tensor(file.get(path + 'model/mean').value);
+    original_mean = tf.tensor(file.get(path + 'model/mean').value);
+    mean = original_mean;
     let pca_basis = file.get(path + 'model/pcaBasis');
     Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
     variance = tf.tensor(file.get(path + 'model/pcaVariance').value);
@@ -41,6 +43,7 @@ export function loadValues(file, path) {
 export function generateAlpha(mode) {
     if (mode == "zero") {
         alpha = tf.zeros(variance.shape);
+        mean = original_mean;
     }
     else if (mode == "random") {
         alpha = new Array;
@@ -124,6 +127,8 @@ export function alphaFromObservations() {
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
 // calculates the posterior mean of the given model
 export function computePosterior(model) {
+    let spinner = document.getElementById('spinner');
+	spinner.style.display = "inline-block";
 
     // get changed positions of model aka observations
     let changed_indices = new Array;
@@ -175,6 +180,9 @@ export function computePosterior(model) {
 
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
+    mean = posterior_mean;
+
+    spinner.style.display = "none";
 
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();

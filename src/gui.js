@@ -21,70 +21,60 @@ let exported_file = null;
 
 export function initGui() {
     gui = new GUI();
-    gui.addColor({color: '#ffffff'}, 'color').name('model color')
-        .onChange(function(e) {
-            model.material.color = new THREE.Color(e);
-    });
+    
     gui.add({show_vertices: function() {
         let points = scene.getObjectByName("points");
         points.visible = !points.visible;
     }}, "show_vertices").name("show/hide vertices");
 
-    gui.add({show_template: switchModels}, "show_template").name("switch between template and model");
-    gui.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("point scale").onChange(value => point_scale = value);
-    
+    gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
+    gui.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
+
     gui.add({posterior: function() {
         updateMesh(computePosterior(model));
         updateAlphaScale();
     }}, "posterior").name("compute posterior");
 
-    gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
-    gui.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
-
-    {
-        let alpha_folder = gui.addFolder("pca alpha");
-        for (let i = 0; i < alpha_scale.length; i++) {
-            alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("index " + i)
-                .onChange(value => {
-                    if (do_update_mesh) updateMesh(updateAlpha(value, i));
-                    // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
-                }));
-        }
-        let alpha_indexed_folder = alpha_folder.addFolder("manually define index");
-        let controller_alpha_scale = alpha_indexed_folder.add({alpha_scale: alpha_scale[pca_index]}, "alpha_scale", -3, 3, 0.001).name("alpha scale")
+    let alpha_folder = gui.addFolder("scale principal components");
+    for (let i = 0; i < alpha_scale.length; i++) {
+        alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("index " + i)
             .onChange(value => {
-                if (do_update_mesh) updateMesh(updateAlpha(value, pca_index));
-                alpha_controllers[pca_index].setValue(value);
-            });
-        let controller_pca_index = alpha_indexed_folder.add({pca_index}, "pca_index", 0, 10, 1).name("pca index")
-            .onChange(value => {
-                pca_index = value;
-                controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
-        });
-        alpha_folder.add({reset_alpha_scale: function() {
-            do_update_mesh = false;
-            generateAlpha("random");
-            controller_pca_index.setValue(0);
-            updateMesh(updateAlpha(alpha.arraySync()[0], 0));
-            do_update_mesh = true;
-            updateAlphaScale();
-        }}, "reset_alpha_scale").name("generate random normally distributed values");
-        alpha_folder.add({set_alpha_zero: function() {
-            generateAlpha("zero");
-            updateMesh(updateAlpha(alpha.arraySync()[0], 0));
-            updateAlphaScale();
-        }}, "set_alpha_zero").name("set all alpha values to 0");
-        alpha_folder.add({alpha_from_s: function() {
-            updateMesh(alphaFromS());
-            updateAlphaScale();
-        }}, "alpha_from_s").name("calculate alpha from s");
-        alpha_folder.add({alpha_from_observations: function() {
-            updateMesh(alphaFromObservations());
-            updateAlphaScale();
-        }}, "alpha_from_observations").name("calculate alpha from observations");
+                if (do_update_mesh) updateMesh(updateAlpha(value, i));
+                // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
+            }));
     }
+    let alpha_indexed_folder = alpha_folder.addFolder("manually define index");
+    let controller_alpha_scale = alpha_indexed_folder.add({alpha_scale: alpha_scale[pca_index]}, "alpha_scale", -3, 3, 0.001).name("alpha scale")
+        .onChange(value => {
+            if (do_update_mesh) updateMesh(updateAlpha(value, pca_index));
+            alpha_controllers[pca_index].setValue(value);
+        });
+    let controller_pca_index = alpha_indexed_folder.add({pca_index}, "pca_index", 0, 10, 1).name("pca index")
+        .onChange(value => {
+            pca_index = value;
+            controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
+    });
 
-    vertex_folder = gui.addFolder("vertex settings");
+    // sets all alpha values to 0
+    gui.add({set_alpha_zero: function() {
+        generateAlpha("zero");
+        updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+        updateAlphaScale();
+    }}, "set_alpha_zero").name("reset to mean shape");
+
+    // generates random normally distributed alpha values
+    gui.add({reset_alpha_scale: function() {
+        do_update_mesh = false;
+        generateAlpha("random");
+        controller_pca_index.setValue(0);
+        updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+        do_update_mesh = true;
+        updateAlphaScale();
+    }}, "reset_alpha_scale").name("generate random shape");
+
+    let settings = gui.addFolder("settings");
+
+    vertex_folder = settings.addFolder("vertex settings");
     vertex_controllers.push(vertex_folder.add(internal_vertex_change, "x", -256, 256, 0.01).name("change marked x")
         .onChange(() => internal_vertex_change.update = true));
     vertex_controllers.push(vertex_folder.add(internal_vertex_change, "y", -256, 256, 0.01).name("change marked y")
@@ -94,7 +84,7 @@ export function initGui() {
     vertex_folder.add({reset_orig: resetVertex}, "reset_orig").name("reset marked vertex to original position");
     vertex_folder.add({reset_all: resetAllVertices}, "reset_all").name("reset all vertices to their original position");
 
-    let light_folder = gui.addFolder("light settings");
+    let light_folder = settings.addFolder("light settings");
     light_folder.add(light.position, "x", -50, 50, 0.5).name("directional light x")
         .onChange(value => light.position.x = value);
     light_folder.add(light.position, "y", -50, 50, 0.5).name("directional light y")
@@ -104,12 +94,31 @@ export function initGui() {
     light_folder.add(light, "intensity", 0, 1, 0.05).name("directional light intensity")
         .onChange(value => light.intensity = value);
 
-    let camera_folder = gui.addFolder("camera settings");
+    let camera_folder = settings.addFolder("camera settings");
     camera_folder.add({y_axis: function() {
         if (camera.up.y == 1) camera.up.set(0, -1, 0);
         else  camera.up.set(0, 1, 0);
         controls.rotateSpeed *= -1;
     }}, "y_axis").name("flip y axis");
+
+    settings.addColor({color: '#ffffff'}, 'color').name('model color')
+        .onChange(function(e) {
+            model.material.color = new THREE.Color(e);
+    });
+
+    settings.add({point_scale}, "point_scale", 0.1, 100, 0.05).name("scale objects").onChange(value => point_scale = value);
+
+    let debugging = settings.addFolder("debugging");
+    debugging.add({show_template: switchModels}, "show_template").name("switch between template and model");
+    debugging.add({alpha_from_s: function() {
+        updateMesh(alphaFromS());
+        updateAlphaScale();
+    }}, "alpha_from_s").name("calculate alpha from s");
+    debugging.add({alpha_from_observations: function() {
+        updateMesh(alphaFromObservations());
+        updateAlphaScale();
+    }}, "alpha_from_observations").name("calculate alpha from observations");
+
 
     gui.add({export_as_ply: function() {
         const exporter = new PLYExporter();
@@ -132,12 +141,14 @@ export function initGui() {
 
 export function resetVertexGui() {
     vertex_controllers.forEach(controller => controller.setValue(controller.initialValue));
+    internal_vertex_change.update = false;
 }
 
 export function updateVertexGui(value) {
     vertex_folder.__controllers[0].setValue(value.x);
     vertex_folder.__controllers[1].setValue(value.y);
     vertex_folder.__controllers[2].setValue(value.z);
+    internal_vertex_change.update = false;
 }
 
 function updateAlphaScale() {

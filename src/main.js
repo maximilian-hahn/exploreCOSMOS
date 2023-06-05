@@ -189,11 +189,12 @@ function update() {
 		const current_pos = model.geometry.getAttribute('position');
 		const orig_pos = model.geometry.getAttribute('original_position');
 		let old_pos;
-
-		if (internal_vertex_change.update) {	// the sliders are used for vertex changes
+		if (internal_vertex_change.update) {	// the sliders are used
+			console.log(internal_vertex_change.update + "WHY AM I HERE?");
 			old_pos = orig_pos;
 			vertex_change.set(internal_vertex_change.x, internal_vertex_change.y, internal_vertex_change.z);
-		} else {	// the mouse is used for vertex changes
+			internal_vertex_change.update = false;
+		} else {	// the mouse is used
 			old_pos = current_pos;
 		}
 
@@ -203,17 +204,9 @@ function update() {
 			old_pos.getZ(marked_vertex_index) + vertex_change.z);
 		marked_vertex.position.set(old_pos.getX(marked_vertex_index) + vertex_change.x,
 			old_pos.getY(marked_vertex_index) + vertex_change.y, old_pos.getZ(marked_vertex_index) + vertex_change.z);
-		
-		updateVertexGui(new THREE.Vector3(
-			current_pos.getX(marked_vertex_index) - orig_pos.getX(marked_vertex_index),
-			current_pos.getY(marked_vertex_index) - orig_pos.getY(marked_vertex_index),
-			current_pos.getZ(marked_vertex_index) - orig_pos.getZ(marked_vertex_index)));
 
 		vertex_change.set(0, 0, 0);
-		internal_vertex_change.update = false;
-		current_pos.needsUpdate = true;
-		model.geometry.computeBoundingSphere();
-		model.geometry.computeVertexNormals();
+		updateModelGeometry(current_pos);
 	}
 	if (reset_vertex_flag) {
 		const current_pos = model.geometry.getAttribute('position');
@@ -223,9 +216,7 @@ function update() {
 		marked_vertex.position.set(orig_pos.getX(marked_vertex_index),
 			orig_pos.getY(marked_vertex_index), orig_pos.getZ(marked_vertex_index));
 
-		current_pos.needsUpdate = true;
-		model.geometry.computeBoundingSphere();
-		model.geometry.computeVertexNormals();
+		updateModelGeometry(current_pos);
 		reset_vertex_flag = false;
 	} else if (reset_all_flag) {
 		const current_pos = model.geometry.getAttribute('position');
@@ -236,13 +227,18 @@ function update() {
 		if (marked_vertex != undefined)
 			removeMarkedVertex();
 
-		current_pos.needsUpdate = true;
-		model.geometry.computeBoundingSphere();
-		model.geometry.computeVertexNormals();
+			updateModelGeometry(current_pos);
 		reset_all_flag = false;
 	}
 
 	controls.update();
+}
+
+function updateModelGeometry(position) {
+	position.needsUpdate = true;
+	model.geometry.computeBoundingBox();
+	model.geometry.computeBoundingSphere();
+	model.geometry.computeVertexNormals();
 }
 
 function createPoint(position) {
@@ -364,7 +360,7 @@ function markNearestVertex(clicked_position) {
 			marked_vertex_index = i;
 		}
 	};
-	console.log("position of marked vertex: " + nearestPoint);
+	console.log("position of marked vertex: ", nearestPoint);
 	messageToUser("index of marked vertex: " + marked_vertex_index);
 	updateMarkedVertex(nearestPoint);
 }
@@ -372,7 +368,8 @@ function markNearestVertex(clicked_position) {
 function removeMarkedVertex() {
 	scene.remove(scene.getObjectByName("marked vertex"));
 	resetVertexGui();
-	messageToUser("vertex no longer marked");
+	if (marked_vertex != undefined)
+		messageToUser("vertex no longer marked");
 	marked_vertex = undefined;
 }
 
@@ -418,6 +415,8 @@ function loadMesh(vertices, indices, name) {
 }
 
 export function updateMesh(vertices) {
+	removeMarkedVertex();
+
 	let predefined_landmarks = model.userData.predefined_landmarks;
 	let vertex_indices = model.userData.vertex_indices;
 	let model_color = model.material.color;
@@ -521,6 +520,13 @@ function onMouseUp(event) {
 	marked_vertex.marked_x = false;
 	marked_vertex.marked_y = false;
 	marked_vertex.marked_z = false;
+
+	const current_pos = model.geometry.getAttribute('position');
+	const orig_pos = model.geometry.getAttribute('original_position');
+	updateVertexGui(new THREE.Vector3(
+		current_pos.getX(marked_vertex_index) - orig_pos.getX(marked_vertex_index),
+		current_pos.getY(marked_vertex_index) - orig_pos.getY(marked_vertex_index),
+		current_pos.getZ(marked_vertex_index) - orig_pos.getZ(marked_vertex_index)));
 }
 
 
@@ -540,13 +546,14 @@ function onMouseMove(event) {
 
 function loadInput(event) {
 	// remove exisiting model
+	removeMarkedVertex();
 	scene.remove(scene.getObjectByName("template_model"));
 	scene.remove(scene.getObjectByName("template_points"));
 	scene.remove(scene.getObjectByName("model"));
 	scene.remove(scene.getObjectByName("points"));
 
-	let loader = document.getElementById('spinner');
-	loader.style.display = "inline-block";
+	let spinner = document.getElementById('spinner');
+	spinner.style.display = "inline-block";
 
 	let file = document.getElementById('input').files[0];
 	
@@ -595,7 +602,7 @@ function loadInput(event) {
 		
 		model.userData.vertex_indices = vertex_indices;
 
-		loader.style.display = "none";
+		spinner.style.display = "none";
 	}
 	reader.readAsArrayBuffer(file);
 }
