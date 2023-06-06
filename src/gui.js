@@ -155,7 +155,7 @@ export function updateVertexGui(value) {
     internal_vertex_change.update = false;
 }
 
-function updateAlphaScale() {
+export function updateAlphaScale() {
     do_update_mesh = false;
     for (let i = 0; i < alpha_controllers.length; i++) {
         alpha_controllers[i].setValue(alpha.arraySync()[i]);

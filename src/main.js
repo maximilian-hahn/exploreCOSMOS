@@ -1,5 +1,5 @@
 import './style.css';
-import {initGui, point_scale, vertex_change, internal_vertex_change, resetVertexGui, updateVertexGui, messageToUser, hideDownloadLink} from './gui.js';
+import {initGui, point_scale, vertex_change, internal_vertex_change, resetVertexGui, updateVertexGui, messageToUser, hideDownloadLink, updateAlphaScale} from './gui.js';
 import {loadValues} from './computation.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -682,6 +682,7 @@ function loadInput(event) {
 
 		// load prior values for posterior computation
 		loadValues(f, path);
+		updateAlphaScale();
 
 		loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
 
