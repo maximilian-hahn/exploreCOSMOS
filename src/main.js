@@ -389,17 +389,37 @@ function getVertices(object) {
 
 function markNearestVertex(clicked_position) {
 	let vertex_positions = getVertices(model);
-	let nearestPoint = vertex_positions[0];
+	let nearest_point = vertex_positions[0];
 	marked_vertex_index = 0;
 	for (let i = 0; i < vertex_positions.length; i++) {
-		if (clicked_position.distanceTo(vertex_positions[i]) < clicked_position.distanceTo(nearestPoint)) {
-			nearestPoint = vertex_positions[i];
+		if (clicked_position.distanceTo(vertex_positions[i]) < clicked_position.distanceTo(nearest_point)) {
+			nearest_point = vertex_positions[i];
 			marked_vertex_index = i;
 		}
 	};
-	console.log("position of marked vertex: ", nearestPoint);
+	console.log("position of marked vertex: ", nearest_point);
 	messageToUser("index of marked vertex: " + marked_vertex_index);
-	updateMarkedVertex(nearestPoint, marked_vertex_index);
+	updateMarkedVertex(nearest_point, marked_vertex_index);
+}
+
+
+function markNearestLandmark(clicked_position) {
+	if (model.userData.landmarks.length == 0) {
+		messageToUser("can't mark landmark as no exist");
+		return;
+	}
+	let landmarks = model.userData.landmarks;
+	let nearest_point = landmarks[0].position;
+	marked_vertex_index = landmarks[0].index;
+	landmarks.forEach(landmark => {
+		if (clicked_position.distanceTo(landmark.position) < clicked_position.distanceTo(nearest_point)) {
+			nearest_point = landmark.position;
+			marked_vertex_index = landmark.index;
+		}
+	});
+	
+	messageToUser("index of marked vertex: " + marked_vertex_index);
+	updateMarkedVertex(nearest_point, marked_vertex_index);
 }
 
 
@@ -522,7 +542,7 @@ function onMouseDown(event) {
 	let mouse = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1);
 	raycaster.setFromCamera(mouse, camera);
 
-	if (window.event.ctrlKey) { // set marked vertex with crtl + click
+	if (window.event.ctrlKey || window.event.shiftKey) {
 		let intersects = raycaster.intersectObject(model);
 		if (intersects.length == 0) {
 			if (marked_vertex == undefined) 
@@ -533,7 +553,11 @@ function onMouseDown(event) {
 			return;
 		}
 		console.log("intersection point: ", intersects[0].point);
-		markNearestVertex(intersects[0].point);
+
+		if (window.event.ctrlKey)		// mark nearest vertex with crtl + click
+			markNearestVertex(intersects[0].point);
+		else if (window.event.shiftKey)	// mark nearest landmark with shift + click 
+			markNearestLandmark(intersects[0].point);
 		return;
 	}
 	
