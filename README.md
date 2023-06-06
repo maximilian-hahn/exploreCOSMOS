@@ -18,7 +18,7 @@ https://maximilian-hahn.github.io/BA/
 ## Control Panel
 
 - **show/hide vertices:** shows all vertices of the model as points to ease targeting a specific vertex or hides them again.
-- **compute posterior:** triggers the computation of the posterior mean if at least one vertex of the shape has been modified. The resulting shape is shown.
+- **compute posterior:** triggers the computation of the posterior mean if at least one vertex of the shape has been modified. The modifed vertices are marked with green spheres, representing landmarks, and are the ones that are taken into account for the computation. The resulting posterior mean is shown as a shape.
 - **scale principal components:** allows the scaling of the first ten principal components by changing the corresponding normally distributed alpha values in the range [-3,3]. The earlier principal components represent a higher variance in the model than the later ones, so scaling them modifies the shape more.
 - **reset to mean shape:** shows the mean shape of the model by setting all alpha values to zero.
 - **generate random shape:** computes a new shape by generating new random normally distributed alpha values to scale the principal components.
