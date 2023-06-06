@@ -54,6 +54,7 @@ export function generateAlpha(mode) {
         }
         alpha = tf.tensor(alpha);
     }
+    euclidianNorm(alpha);
 }
 
 // updates the shape vector with given alpha user inputs
@@ -172,6 +173,10 @@ export function computePosterior(model) {
 
     alpha = Q_g_inv.dot(s_g.sub(mean_g));
     console.log("alpha: ", alpha.arraySync());
+    let norm = euclidianNorm(alpha);
+    console.log("euclidian norm: " + norm);
+    if (norm > 50)
+        messageToUser("warning: The result is rather extreme due to high constraints. Euclidian norm: " + norm + " > 50", 10);
 
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
@@ -189,4 +194,8 @@ function normalDistribution(mean=0, stdev=1) {
     let z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.pi * v );
     // Transform to the desired mean and standard deviation:
     return z * stdev + mean;
+}
+
+function euclidianNorm(vector) {
+    return vector.square().sum().sqrt().arraySync();
 }

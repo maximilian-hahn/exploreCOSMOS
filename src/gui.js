@@ -160,10 +160,10 @@ function updateAlphaScale() {
     do_update_mesh = true;
 }
 
-export function messageToUser(message) {
+export function messageToUser(message, duration = 5) {
     Toastify({
         text: message,
-        duration: 5000,
+        duration: duration * 1000,
         gravity: "bottom",
         position: "center"
     }).showToast();
