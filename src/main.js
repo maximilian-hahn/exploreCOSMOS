@@ -343,7 +343,7 @@ export function removeAllLandmarks() {
 
 
 export function loadLandmarks() {
-	if(model.userData.predefined_landmarks == undefined) {
+	if(model.userData.predefined_landmarks == undefined || model.userData.predefined_landmarks.length == 0) {
 		messageToUser("this model doesn't have any predefined landmarks");
 		return;
 	}
@@ -695,6 +695,7 @@ function loadInput(event) {
 		} catch(error) {
 			messageToUser(error + " -> no landmarks available");
 		}
+		console.log(model.userData.predefined_landmarks);
 		
 		model.userData.vertex_indices = vertex_indices;
 
