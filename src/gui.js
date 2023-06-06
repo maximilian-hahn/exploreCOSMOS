@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices, recenterCamera} from './main.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices, recenterCamera, removeAllLandmarks} from './main.js';
 import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
@@ -26,9 +26,6 @@ export function initGui() {
         let points = scene.getObjectByName("points");
         points.visible = !points.visible;
     }}, "show_vertices").name("show/hide vertices");
-
-    gui.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
-    gui.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
 
     gui.add({posterior: function() {
         updateMesh(computePosterior(model), true);
@@ -71,6 +68,12 @@ export function initGui() {
         do_update_mesh = true;
         updateAlphaScale();
     }}, "reset_alpha_scale").name("generate random shape");
+
+    let landmark_folder = gui.addFolder("landmarks");
+    landmark_folder.add({landmark: handleLandmarks}, "landmark").name("create/remove landmark");
+    landmark_folder.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
+    landmark_folder.add({remove_all: removeAllLandmarks}, "remove_all").name("remove all landmarks");
+
 
     let settings = gui.addFolder("settings");
 

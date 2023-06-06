@@ -174,7 +174,6 @@ export function computePosterior(model) {
     alpha = Q_g_inv.dot(s_g.sub(mean_g));
     console.log("alpha: ", alpha.arraySync());
     let norm = euclidianNorm(alpha);
-    console.log("euclidian norm: " + norm);
     if (norm > 50)
         messageToUser("warning: The result is rather extreme due to high constraints. Euclidian norm: " + norm, 10);
 
@@ -197,5 +196,7 @@ function normalDistribution(mean=0, stdev=1) {
 }
 
 function euclidianNorm(vector) {
-    return vector.square().sum().sqrt().arraySync();
+    let norm = vector.square().sum().sqrt().arraySync();
+    console.log("euclidian norm: " + norm);
+    return norm;
 }

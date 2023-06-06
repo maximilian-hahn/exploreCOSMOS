@@ -334,7 +334,7 @@ function removeLandmark(landmark) {
 }
 
 
-function removeAllLandmarks() {
+export function removeAllLandmarks() {
 	if (model.userData.landmarks.length == 0) return;
 	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
 	model.userData.landmarks = new Array();
@@ -343,8 +343,7 @@ function removeAllLandmarks() {
 
 
 export function loadLandmarks() {
-	// remove all existing landmarks
-	model.userData.landmarks.forEach(landmark => removeLandmark(landmark));
+	removeAllLandmarks();
 
 	// load the predefined landmarks
 	let template_vertices = getVertices(scene.getObjectByName("template_model"));
