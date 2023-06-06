@@ -9,6 +9,8 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import * as hdf5 from 'jsfive';
 import * as tf from '@tensorflow/tfjs';
 
+const LANDMARK_TOLERANCE = 0.01;
+
 export let scene, light, camera, controls;
 export let model, model_vertices;
 let marked_vertex, marked_vertex_index;
@@ -190,7 +192,6 @@ function update() {
 		const orig_pos = model.geometry.getAttribute('original_position');
 		let old_pos;
 		if (internal_vertex_change.update) {	// the sliders are used
-			console.log(internal_vertex_change.update + "WHY AM I HERE?");
 			old_pos = orig_pos;
 			vertex_change.set(internal_vertex_change.x, internal_vertex_change.y, internal_vertex_change.z);
 			internal_vertex_change.update = false;
@@ -213,8 +214,15 @@ function update() {
 		const orig_pos = model.geometry.getAttribute('original_position');
 		current_pos.setXYZ(marked_vertex_index, orig_pos.getX(marked_vertex_index),
 			orig_pos.getY(marked_vertex_index), orig_pos.getZ(marked_vertex_index));
-		marked_vertex.position.set(orig_pos.getX(marked_vertex_index),
-			orig_pos.getY(marked_vertex_index), orig_pos.getZ(marked_vertex_index));
+		
+		removeMarkedVertex();
+		// remove the landmark as position is reset
+		model.userData.landmarks.forEach(landmark => {
+			if (landmark.index == marked_vertex_index) {
+				removeLandmark(landmark);
+				return;
+			}
+		});
 
 		updateModelGeometry(current_pos);
 		reset_vertex_flag = false;
@@ -227,12 +235,15 @@ function update() {
 		if (marked_vertex != undefined)
 			removeMarkedVertex();
 
-			updateModelGeometry(current_pos);
+		removeAllLandmarks();
+
+		updateModelGeometry(current_pos);
 		reset_all_flag = false;
 	}
 
 	controls.update();
 }
+
 
 function updateModelGeometry(position) {
 	position.needsUpdate = true;
@@ -240,6 +251,7 @@ function updateModelGeometry(position) {
 	model.geometry.computeBoundingSphere();
 	model.geometry.computeVertexNormals();
 }
+
 
 function createPoint(position) {
 	let point = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0xFF0000}));
@@ -292,33 +304,50 @@ export function handleLandmarks() {
 		messageToUser("mark a vertex to create a landmark for it");
 		return;
 	}
-	let exisiting_landmark = model.userData.landmarks.find(landmark => landmark.position.equals(marked_vertex.position));
-	if (exisiting_landmark != undefined) {
-		scene.remove(exisiting_landmark);
+	let existing_landmark = model.userData.landmarks.find(landmark => landmark.position.distanceTo(marked_vertex.position) < LANDMARK_TOLERANCE);
+	if (existing_landmark != undefined) {
+		removeLandmark(existing_landmark);
 		messageToUser("existing landmark removed");
 	} else {
-		createLandmark(marked_vertex.position);
+		createLandmark(marked_vertex_index);
 		messageToUser("landmark created");
 	}
 }
 
-function createLandmark(position) {
+function createLandmark(index) {
 	let landmark = new THREE.Mesh( new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshPhongMaterial({color: 0x00FF00}));
-	landmark.position.set(...position);
-	landmark.name = "landmark: " + position.toArray();
+	let model_position = model.geometry.getAttribute('position');
+	landmark.position.set(model_position.getX(index), model_position.getY(index), model_position.getZ(index));
+	landmark.name = "landmark: " + index;
+	landmark.index = index;
 
 	scene.add(landmark);
 	model.userData.landmarks.push(landmark);
 	return landmark;
 }
 
+
+function removeLandmark(landmark) {
+	scene.remove(landmark);
+	let index = model.userData.landmarks.indexOf(landmark);
+	model.userData.landmarks.splice(index, 1);
+}
+
+
+function removeAllLandmarks() {
+	if (model.userData.landmarks.length == 0) return;
+	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
+	model.userData.landmarks = new Array();
+	messageToUser("all landmarks removed");
+}
+
+
 export function loadLandmarks() {
 	// remove all existing landmarks
-	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
+	model.userData.landmarks.forEach(landmark => removeLandmark(landmark));
 
 	// load the predefined landmarks
 	let template_vertices = getVertices(scene.getObjectByName("template_model"));
-	let model_vertices = getVertices(model);
 	model.userData.predefined_landmarks.forEach(predefined_landmark => {
 		// as the predefined landmarks have the template as positional reference
 		// the corresponding indices have to be determined to get the actual models position
@@ -327,19 +356,25 @@ export function loadLandmarks() {
 				predefined_landmark.index = i;
 			}
 		}
-		createLandmark(model_vertices[predefined_landmark.index]);
+		createLandmark(predefined_landmark.index);
 	});
 }
 
-function updateMarkedVertex(position) {
-	if (marked_vertex == undefined)
-		marked_vertex = createPoint(position);
-	else {
+function updateMarkedVertex(new_position, new_index) {
+	if (marked_vertex == undefined) {
+		marked_vertex = createPoint(new_position);
+	} else {
+		// create landmark if the position changed
+		if (!marked_vertex.position.equals(marked_vertex.original_position)) {
+			createLandmark(marked_vertex.index);
+		}
 		resetVertexGui();
-		marked_vertex.position.set(...position);
-		marked_vertex.original_position.set(...position);
+		marked_vertex.position.set(...new_position);
+		marked_vertex.original_position.set(...new_position);
 	}
+	marked_vertex.index = new_index;
 }
+
 
 function getVertices(object) {
 	let tmp = object.geometry.attributes.position.array;
@@ -347,8 +382,10 @@ function getVertices(object) {
 	for (let i = 0; i < tmp.length; i += 3) {
 		vertices.push(new THREE.Vector3(tmp[i], tmp[i + 1], tmp[i + 2]));
 	}
+	object.userData.vertices = vertices;
 	return vertices;
 }
+
 
 function markNearestVertex(clicked_position) {
 	let vertex_positions = getVertices(model);
@@ -362,16 +399,24 @@ function markNearestVertex(clicked_position) {
 	};
 	console.log("position of marked vertex: ", nearestPoint);
 	messageToUser("index of marked vertex: " + marked_vertex_index);
-	updateMarkedVertex(nearestPoint);
+	updateMarkedVertex(nearestPoint, marked_vertex_index);
 }
 
-function removeMarkedVertex() {
+
+export function removeMarkedVertex() {
+	if (marked_vertex == undefined) return;
 	scene.remove(scene.getObjectByName("marked vertex"));
 	resetVertexGui();
-	if (marked_vertex != undefined)
-		messageToUser("vertex no longer marked");
+
+	// create landmark if the position changed
+	if (!marked_vertex.position.equals(marked_vertex.original_position)) {
+		createLandmark(marked_vertex.index);
+	}
+
+	messageToUser("vertex no longer marked");
 	marked_vertex = undefined;
 }
+
 
 function drawVertices(mesh, name) {
 	let vertices = mesh.geometry.getAttribute('position');
@@ -386,6 +431,7 @@ function drawVertices(mesh, name) {
 	model_vertices = points;
 	scene.add(points);
 }
+
 
 function loadMesh(vertices, indices, name) {
 	let geometry = new THREE.BufferGeometry();
@@ -414,26 +460,31 @@ function loadMesh(vertices, indices, name) {
 	hideDownloadLink();
 }
 
-export function updateMesh(vertices) {
-	removeMarkedVertex();
 
+export function updateMesh(vertices, keep_landmarks = false) {
 	let predefined_landmarks = model.userData.predefined_landmarks;
 	let vertex_indices = model.userData.vertex_indices;
 	let model_color = model.material.color;
 
-	model.userData.landmarks.forEach(landmark => scene.remove(landmark));
+	let landmarks = model.userData.landmarks;
+	if (!keep_landmarks)
+		removeAllLandmarks();
+
 	scene.remove(scene.getObjectByName("model"));
 	scene.remove(scene.getObjectByName("points"));
 	loadMesh(vertices, vertex_indices, "model");
 	drawVertices(model, "points");
+
+	if (keep_landmarks)
+		model.userData.landmarks = landmarks;
 
 	model.userData.predefined_landmarks = predefined_landmarks;
 	model.userData.vertex_indices = vertex_indices;
 	model.material.color = model_color;
 }
 
+
 function centerMeshPosition(mesh_position) {
-	console.log(mesh_position);
 	let position_matrix = Math.reshape(mesh_position, [3, -1]);
 	// subtract average position from every point to center mesh to origin of space
 	let avg_position = position_matrix.map(dim => (dim.reduce((a, b) => a + b, 0) / dim.length));
@@ -445,6 +496,7 @@ function centerMeshPosition(mesh_position) {
 	});
 	return new Float32Array(Math.flatten(position_matrix));
 }
+
 
 export function switchModels() {
 	model.visible = false;
@@ -488,12 +540,11 @@ function onMouseDown(event) {
 	if (marked_vertex == undefined) return;
 
 	// vertices marked with landmarks should not be able to move
-	for (let i = 0; i < model.userData.landmarks.length; i++) {
-		if (model.userData.landmarks[i].position.equals(marked_vertex.position)) {
-			messageToUser("Vertices marked with landmarks cannot move");
-			return;
-		}
+	let existing_landmark = model.userData.landmarks.find(landmark => landmark.position.distanceTo(marked_vertex.position) < LANDMARK_TOLERANCE);
+	if (existing_landmark != undefined) {
+		removeLandmark(existing_landmark);
 	}
+
 	// change marked vertex position
 	let intersects = raycaster.intersectObject(marked_vertex);
 	if (intersects.length == 0) {
@@ -607,6 +658,7 @@ function loadInput(event) {
 	reader.readAsArrayBuffer(file);
 }
 
+
 export function resetVertex() {
 	if (marked_vertex == undefined)
 		messageToUser("You have to mark a vertex to reset its position");
@@ -615,6 +667,7 @@ export function resetVertex() {
 		reset_vertex_flag = true;
 	}
 }
+
 
 export function resetAllVertices() {
 	reset_all_flag = true;

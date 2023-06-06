@@ -31,7 +31,7 @@ export function initGui() {
     gui.add({load_landmarks: loadLandmarks}, "load_landmarks").name("load landmarks");
 
     gui.add({posterior: function() {
-        updateMesh(computePosterior(model));
+        updateMesh(computePosterior(model), true);
         updateAlphaScale();
     }}, "posterior").name("compute posterior");
 

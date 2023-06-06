@@ -1,4 +1,5 @@
 import { messageToUser } from './gui';
+import { removeMarkedVertex } from './main';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
 import { Matrix } from 'ml-matrix';
@@ -128,30 +129,21 @@ export function alphaFromObservations() {
 // TODO: optimize code, e.g. .arraySync() for values at specific index suboptimal 
 // calculates the posterior mean of the given model
 export function computePosterior(model) {
-    // get changed positions of model aka observations
-    let changed_indices = new Array;
+    removeMarkedVertex();
 
     const model_position = model.geometry.getAttribute('position').array;
     s = tf.tensor(model_position);
-
-    const model_old_pos = model.geometry.getAttribute('original_position').array;
-    // save all coordinates of the changed vertex even if only one changed
-    for (let i = 0; i < model_position.length; i+=3) {
-        if (model_position[i] != model_old_pos[i] || model_position[i+1] != model_old_pos[i+1] || model_position[i+2] != model_old_pos[i+2]) {
-            changed_indices.push(i);
-            changed_indices.push(i+1);
-            changed_indices.push(i+2);
-        }
-        // landmarks are also treated as observations
-        model.userData.landmarks.forEach(landmark => {
-            if (landmark.position.x == model_position[i] || landmark.position.y == model_position[i+1] || landmark.position.z == model_position[i+2]) {
-                changed_indices.push(i);
-                changed_indices.push(i+1);
-                changed_indices.push(i+2);
-                return;
-            }
-        });
-    }
+    
+    // get changed positions of model aka observations
+    let changed_indices = new Array;
+    // landmarks mark the observations
+    model.userData.landmarks.forEach(landmark => {
+        // save all coordinates of the landmark
+        changed_indices.push(landmark.index * 3);
+        changed_indices.push(landmark.index * 3 + 1);
+        changed_indices.push(landmark.index * 3 + 2);
+        
+    });
 
     if (changed_indices.length == 0) {
         messageToUser("You have to change the shape to compute the posterior");
@@ -183,7 +175,6 @@ export function computePosterior(model) {
 
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
-    mean = posterior_mean;
 
     // posterior mean can be displayed as a mesh
     return posterior_mean.arraySync();
