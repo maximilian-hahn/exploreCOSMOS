@@ -176,7 +176,7 @@ export function computePosterior(model) {
     let norm = euclidianNorm(alpha);
     console.log("euclidian norm: " + norm);
     if (norm > 50)
-        messageToUser("warning: The result is rather extreme due to high constraints. Euclidian norm: " + norm + " > 50", 10);
+        messageToUser("warning: The result is rather extreme due to high constraints. Euclidian norm: " + norm, 10);
 
     s = mean.add(Q.dot(alpha));
     let posterior_mean = s;
