@@ -634,6 +634,9 @@ function onMouseMove(event) {
 
 
 function loadInput(event) {
+	let file = document.getElementById('input').files[0];
+	if (file == undefined) return;
+	
 	// remove exisiting model
 	if (model != undefined) {
 		removeMarkedVertex();
@@ -647,8 +650,6 @@ function loadInput(event) {
 	let spinner = document.getElementById('spinner');
 	spinner.style.display = "inline-block";
 
-	let file = document.getElementById('input').files[0];
-	
 	// hdf5 loader  https://github.com/usnistgov/jsfive
 	let reader = new FileReader();
 	reader.onloadend = function(evt) { 
