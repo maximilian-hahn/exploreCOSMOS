@@ -343,6 +343,10 @@ export function removeAllLandmarks() {
 
 
 export function loadLandmarks() {
+	if(model.userData.predefined_landmarks == undefined) {
+		messageToUser("this model doesn't have any predefined landmarks");
+		return;
+	}
 	removeAllLandmarks();
 
 	// load the predefined landmarks
@@ -357,6 +361,8 @@ export function loadLandmarks() {
 		}
 		createLandmark(predefined_landmark.index);
 	});
+
+	messageToUser("all predefined landmarks loaded");
 }
 
 function updateMarkedVertex(new_position, new_index) {
@@ -364,7 +370,10 @@ function updateMarkedVertex(new_position, new_index) {
 		marked_vertex = createPoint(new_position);
 	} else {
 		// create landmark if the position changed
-		if (!marked_vertex.position.equals(marked_vertex.original_position)) {
+		const model_orig_pos = model.geometry.getAttribute("original_position");
+		if (!marked_vertex.position.equals(marked_vertex.original_position) ||
+			!marked_vertex.position.equals(new THREE.Vector3(model_orig_pos.getX(marked_vertex.index),
+			model_orig_pos.getY(marked_vertex.index), model_orig_pos.getZ(marked_vertex.index)))) {
 			createLandmark(marked_vertex.index);
 		}
 		resetVertexGui();
@@ -428,7 +437,10 @@ export function removeMarkedVertex() {
 	resetVertexGui();
 
 	// create landmark if the position changed
-	if (!marked_vertex.position.equals(marked_vertex.original_position)) {
+	const model_orig_pos = model.geometry.getAttribute("original_position");
+	if (!marked_vertex.position.equals(marked_vertex.original_position) ||
+		!marked_vertex.position.equals(new THREE.Vector3(model_orig_pos.getX(marked_vertex_index),
+		model_orig_pos.getY(marked_vertex_index), model_orig_pos.getZ(marked_vertex_index)))) {
 		createLandmark(marked_vertex.index);
 	}
 
@@ -623,11 +635,14 @@ function onMouseMove(event) {
 
 function loadInput(event) {
 	// remove exisiting model
-	removeMarkedVertex();
-	scene.remove(scene.getObjectByName("template_model"));
-	scene.remove(scene.getObjectByName("template_points"));
-	scene.remove(scene.getObjectByName("model"));
-	scene.remove(scene.getObjectByName("points"));
+	if (model != undefined) {
+		removeMarkedVertex();
+		removeAllLandmarks();
+		scene.remove(scene.getObjectByName("template_model"));
+		scene.remove(scene.getObjectByName("template_points"));
+		scene.remove(scene.getObjectByName("model"));
+		scene.remove(scene.getObjectByName("points"));
+	}
 
 	let spinner = document.getElementById('spinner');
 	spinner.style.display = "inline-block";
