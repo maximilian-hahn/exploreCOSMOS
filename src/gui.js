@@ -1,4 +1,4 @@
-import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices} from './main.js';
+import {updateMesh, switchModels, scene, light, camera, controls, model, handleLandmarks, loadLandmarks, resetVertex, resetAllVertices, recenterCamera} from './main.js';
 import { alpha, generateAlpha, updateAlpha, alphaFromS, alphaFromObservations, computePosterior } from './computation.js';
 import { GUI } from 'dat.gui/build/dat.gui.module.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
@@ -100,6 +100,7 @@ export function initGui() {
         else  camera.up.set(0, 1, 0);
         controls.rotateSpeed *= -1;
     }}, "y_axis").name("flip y axis");
+    camera_folder.add({recenter: recenterCamera}, "recenter").name("target camera to center of mesh");
 
     settings.addColor({color: '#ffffff'}, 'color').name('model color')
         .onChange(function(e) {

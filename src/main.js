@@ -461,14 +461,6 @@ function loadMesh(vertices, indices, name) {
 	let mesh = new THREE.Mesh(geometry, material);
 
 	mesh.geometry.computeVertexNormals();
-	
-	// set the orbit controls target to the center of the mesh
-	// src: https://stackoverflow.com/questions/38305408/threejs-get-center-of-object
-	mesh.geometry.computeBoundingBox();
-	let center = new THREE.Vector3();
-	geometry.boundingBox.getCenter(center);
-	mesh.localToWorld(center);
-	controls.target.set(...center);
 
 	const position = mesh.geometry.getAttribute('position');
 	mesh.geometry.attributes.original_position = position.clone();
@@ -532,6 +524,17 @@ export function switchModels() {
 	}
 	model.visible = true;
 	model_vertices.visible = false;
+}
+
+
+export function recenterCamera() {
+	// set the orbit controls target to the center of the mesh
+	// src: https://stackoverflow.com/questions/38305408/threejs-get-center-of-object
+	model.geometry.computeBoundingBox();
+	let center = new THREE.Vector3();
+	model.geometry.boundingBox.getCenter(center);
+	model.localToWorld(center);
+	controls.target.set(...center);
 }
 
 
@@ -668,6 +671,8 @@ function loadInput(event) {
 		loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
 
 		drawVertices(model, "points");
+
+		recenterCamera();
 
 		try {
 			model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
