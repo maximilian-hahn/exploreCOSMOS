@@ -1,8 +1,11 @@
 # Interactive Creation and Modification of Statistical Shape Models
 
-Load in your statistical shape model .h5 file and interactively change the shape and compute the posterior mean of the model.
+**Link to web application:** https://maximilian-hahn.github.io/BA/
 
-https://maximilian-hahn.github.io/BA/
+Load in your statistical shape model .h5 file and interactively change the shape and compute the posterior mean of the model!
+
+Since the file size can be in the 100s of MB loading may take several seconds.
+
 
 ## Controls
 
