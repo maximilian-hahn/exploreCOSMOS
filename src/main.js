@@ -58,8 +58,8 @@ function init() {
 	// directional light
 	{
 		light = new THREE.DirectionalLight();
-		light.position.set(0, 2, -10);
-		light.intensity = 0.0;
+		light.position.set(0, 0, 1);
+		light.intensity = 0.35;
 		scene.add(light);
 	}
 

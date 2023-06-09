@@ -88,13 +88,13 @@ export function initGui() {
     vertex_folder.add({reset_all: resetAllVertices}, "reset_all").name("reset all vertices to their original position");
 
     let light_folder = settings.addFolder("light settings");
-    light_folder.add(light.position, "x", -50, 50, 0.5).name("directional light x")
+    light_folder.add(light.position, "x", -10, 10, 0.1).name("x position")
         .onChange(value => light.position.x = value);
-    light_folder.add(light.position, "y", -50, 50, 0.5).name("directional light y")
+    light_folder.add(light.position, "y", -10, 10, 0.1).name("y postition")
         .onChange(value => light.position.y = value);
-    light_folder.add(light.position, "z", -50, 50, 0.5).name("directional light z")
+    light_folder.add(light.position, "z", -10, 10, 0.1).name("z position")
         .onChange(value => light.position.z = value);
-    light_folder.add(light, "intensity", 0, 1, 0.05).name("directional light intensity")
+    light_folder.add(light, "intensity", 0, 1, 0.05).name("light intensity")
         .onChange(value => light.intensity = value);
 
     let camera_folder = settings.addFolder("camera settings");

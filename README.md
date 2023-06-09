@@ -31,7 +31,7 @@ https://maximilian-hahn.github.io/BA/
     - **change marked (x,y,z):** changes the position of the marked vertex similarly to the mouse controls but offers higher precision because it allows typing specific float values.
     - **reset marked vertex to original position:** resets the position of the marked vertex to the original one and removes its landmark.
     - **reset all vertices to their original position:** resets the position of all changed vertices to their original one and removes all landmarks.
-  - **light settings:** changes position and intensity of the directional light.
+  - **light settings:** changes position and intensity of the light.
   - **camera settings:** flips the camera along the y axis or retargets the camera to the center of the mesh if that should not be the case for some reason.
   - **model color:** changes the color of the shape.
   - **scale objects:** scales the size of the landmarks and the vertex helper object.
