@@ -141,6 +141,17 @@ function init() {
 	document.addEventListener('mousemove', onMouseMove)
 	document.addEventListener('mouseup', onMouseUp);
 	document.getElementById("input").onchange = loadInput;
+
+	fetch("./test_model.h5")
+		.then(response => response.arrayBuffer())
+		.then(buffer => {
+			let f = new hdf5.File(buffer, "test_model.h5");
+			loadHDF5(f);
+			messageToUser("test model loaded. " + "Source: Face Mesh (https://skfb.ly/6QUCW) by cardio_man, " +
+				"licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).");
+		})
+		.catch(console.error);
+
 	console.log(scene);
 }
 
@@ -633,9 +644,12 @@ function onMouseMove(event) {
 }
 
 
-function loadInput(event) {
+function loadInput() {
 	let file = document.getElementById('input').files[0];
-	if (file == undefined) return;
+	if (file == undefined) {
+		console.log("no file input");
+		return;
+	}
 	
 	// remove exisiting model
 	if (model != undefined) {
@@ -655,53 +669,58 @@ function loadInput(event) {
 	reader.onloadend = function(evt) { 
 		let array_buffer = evt.target.result;
 		let f = new hdf5.File(array_buffer, file.name);
-
-		// determine the path of the .h5 file, morphable models have a seperate folder for the shape, statistical models don't
-		let path = 'shape/';
-		try {
-			f.get('shape');
-		} catch (error) {
-			console.log(error + " -> model data in root folder");
-			path = '';
-		}
-
-		// loading template model
-		let template_points = f.get(path + 'representer/points');  // coordinates of template model points
-		let template_cells = f.get(path + 'representer/cells');    // indices of template model for triangles
-
-		// weird I would have to do this but input has flipped dimensions? -> probably row/column major differences
-		let vertex_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
-		let template_vertices = Math.flatten(Math.transpose(Math.reshape(template_points.value, template_points.shape)))
-
-		loadMesh(template_vertices, vertex_indices, "template_model");
-
-		drawVertices(model, "template_points");
-
-		model.visible = false;
-		model_vertices.visible = false;
-
-		// load prior values for posterior computation
-		loadValues(f, path);
-		updateAlphaScale();
-
-		loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
-
-		drawVertices(model, "points");
-
-		recenterCamera();
-
-		try {
-			model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
-		} catch(error) {
-			messageToUser(error + " -> no landmarks available");
-		}
-		console.log(model.userData.predefined_landmarks);
-		
-		model.userData.vertex_indices = vertex_indices;
-
-		spinner.style.display = "none";
+		loadHDF5(f);
 	}
 	reader.readAsArrayBuffer(file);
+}
+
+
+function loadHDF5(f) {
+	// determine the path of the .h5 file, morphable models have a seperate folder for the shape, statistical models don't
+	let path = 'shape/';
+	try {
+		f.get('shape');
+	} catch (error) {
+		console.log(error + " -> model data in root folder");
+		path = '';
+	}
+
+	// loading template model
+	let template_points = f.get(path + 'representer/points');  // coordinates of template model points
+	let template_cells = f.get(path + 'representer/cells');    // indices of template model for triangles
+
+	// weird I would have to do this but input has flipped dimensions? -> probably row/column major differences
+	let vertex_indices = new Uint16Array(Math.flatten(Math.transpose(Math.reshape(template_cells.value, template_cells.shape))));
+	let template_vertices = Math.flatten(Math.transpose(Math.reshape(template_points.value, template_points.shape)))
+
+	loadMesh(template_vertices, vertex_indices, "template_model");
+
+	drawVertices(model, "template_points");
+
+	model.visible = false;
+	model_vertices.visible = false;
+
+	// load prior values for posterior computation
+	loadValues(f, path);
+	updateAlphaScale();
+
+	loadMesh(f.get(path + 'model/mean').value, vertex_indices, "model");
+
+	drawVertices(model, "points");
+
+	recenterCamera();
+
+	try {
+		model.userData.predefined_landmarks = JSON.parse(f.get('metadata/landmarks/json').value);
+	} catch(error) {
+		messageToUser(error + " -> no landmarks available");
+	}
+	console.log(model.userData.predefined_landmarks);
+	
+	model.userData.vertex_indices = vertex_indices;
+
+	let spinner = document.getElementById('spinner');
+	spinner.style.display = "none";
 }
 
 

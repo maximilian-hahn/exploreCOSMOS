@@ -6,7 +6,6 @@ Load in your statistical shape model .h5 file and interactively change the shape
 
 Since the file size can be in the 100s of MB loading may take several seconds.
 
-
 ## Controls
 
 - **Left Mouse Button:** move mouse to change camera angle around shape.
@@ -40,3 +39,7 @@ Since the file size can be in the 100s of MB loading may take several seconds.
   - **scale objects:** scales the size of the landmarks and the vertex helper object.
 - **export model as .ply file:** generates a link that can be clicked to download the current shape as a .ply file.
 
+## Sources
+
+Test model created on the basis of "Face Mesh" (https://skfb.ly/6QUCW) by cardio_man, licensed under Creative Commons
+Attribution (http://creativecommons.org/licenses/by/4.0/).

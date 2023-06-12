@@ -139,7 +139,7 @@ export function initGui() {
         link.style.display = 'block';
 
         messageToUser("Download the .ply file in the bottom left")
-    }}, "export_as_ply").name("export model as .ply file");
+    }}, "export_as_ply").name("export current shape as .ply file");
 
 }
 
