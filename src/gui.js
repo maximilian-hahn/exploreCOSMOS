@@ -55,7 +55,7 @@ export function initGui() {
     // sets all alpha values to 0
     gui.add({set_alpha_zero: function() {
         generateAlpha("zero");
-        updateMesh(updateAlpha(alpha.arraySync()[0], 0));
+        updateMesh(updateAlpha(0, 0));
         updateAlphaScale();
     }}, "set_alpha_zero").name("reset to mean shape");
 

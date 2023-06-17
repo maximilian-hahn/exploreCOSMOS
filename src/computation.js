@@ -1,4 +1,4 @@
-import { messageToUser } from './gui';
+import { messageToUser, updateAlphaScale } from './gui';
 import { removeMarkedVertex } from './main';
 import * as tf from '@tensorflow/tfjs';
 import * as Math from 'mathjs';
@@ -21,13 +21,11 @@ export let alpha;       // coefficients for principal component matrix Q that fo
                         // values in range [-3;3]
 let s;                  // shape vector calculated using the formula s = mean + Q*alpha
 let reference_position; // vector of the reference shape
-let original_mean;
 
 
 // loads the necessary values for the posterior computation from the given .h5 file
 export function loadValues(file, path) {
-    original_mean = tf.tensor(file.get(path + 'model/mean').value);
-    mean = original_mean;
+    mean = tf.tensor(file.get(path + 'model/mean').value);
     let pca_basis = file.get(path + 'model/pcaBasis');
     Q = tf.tensor(Math.reshape(pca_basis.value, pca_basis.shape));
     variance = tf.tensor(file.get(path + 'model/pcaVariance').value);
@@ -45,7 +43,6 @@ export function loadValues(file, path) {
 export function generateAlpha(mode) {
     if (mode == "zero") {
         alpha = tf.zeros(variance.shape);
-        mean = original_mean;
     }
     else if (mode == "random") {
         alpha = new Array;
@@ -147,8 +144,17 @@ export function computePosterior(model) {
     });
 
     if (changed_indices.length == 0) {
-        messageToUser("You have to change the shape to compute the posterior");
-        return s.arraySync();
+        console.log(s.equal(mean).sum().arraySync());
+        console.log(mean.shape[0]);
+        if(!(s.equal(mean).sum().arraySync() === mean.shape[0])) {
+            messageToUser("no landmarks set -> reset to mean shape");
+            generateAlpha("zero");
+            updateAlphaScale();
+            return updateAlpha(0, 0);
+        } else {
+            messageToUser("You have to change the shape to compute the posterior");
+            return s.arraySync();
+        }
     }
 
     // select those elements and rows of s, mean and Q that correspond to the given observations
