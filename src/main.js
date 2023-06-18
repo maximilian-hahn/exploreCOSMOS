@@ -142,6 +142,8 @@ function init() {
 	document.addEventListener('mouseup', onMouseUp);
 	document.getElementById("input").onchange = loadInput;
 
+	messageToUser("for more information on how the controls work: click here", 10, "https://github.com/maximilian-hahn/BA#readme");
+
 	fetch("./test_model.h5")
 		.then(response => response.arrayBuffer())
 		.then(buffer => {

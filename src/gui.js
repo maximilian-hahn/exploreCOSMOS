@@ -163,10 +163,13 @@ export function updateAlphaScale() {
     do_update_mesh = true;
 }
 
-export function messageToUser(message, duration = 5) {
+export function messageToUser(message, duration = 5, url = "") {
     Toastify({
         text: message,
         duration: duration * 1000,
+        destination: url,
+        newWindow: true,
+        close: true,
         gravity: "bottom",
         position: "center"
     }).showToast();
