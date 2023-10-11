@@ -142,6 +142,27 @@ function init() {
 	document.addEventListener('mouseup', onMouseUp);
 	document.getElementById("input").onchange = loadInput;
 
+	// modals
+	{
+		let controls_modal = document.getElementById("controls_modal");
+		document.getElementById("close_controls").onclick = function() {
+			controls_modal.style.display = "none";
+		};
+		let tutorial_modal = document.getElementById("tutorial_modal");
+		document.getElementById("close_tutorial").onclick = function() {
+			tutorial_modal.style.display = "none";
+		};
+		// When the user clicks anywhere outside of the modal, close it
+		window.onclick = function(event) {
+			if (event.target == controls_modal) {
+				controls_modal.style.display = "none";
+			}
+			if (event.target == tutorial_modal) {
+				tutorial_modal.style.display = "none";
+			}
+		}
+	}
+
 	fetch("./test_model.h5")
 		.then(response => response.arrayBuffer())
 		.then(buffer => {

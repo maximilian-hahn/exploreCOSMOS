@@ -140,7 +140,6 @@ export function initGui() {
 
         messageToUser("Download the .ply file in the bottom left")
     }}, "export_as_ply").name("export current shape as .ply file");
-
 }
 
 export function resetVertexGui() {
@@ -168,6 +167,19 @@ export function messageToUser(message, duration = 5) {
         text: message,
         duration: duration * 1000,
         gravity: "bottom",
+        position: "center"
+    }).showToast();
+
+    console.log(message);
+}
+
+function generateTextbox(message, url = "") {
+    Toastify({
+        text: message,
+        duration: -1,
+        close: true,
+        destination: url,
+        newWindow: true,
         position: "center"
     }).showToast();
 

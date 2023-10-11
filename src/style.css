@@ -3,6 +3,13 @@ html, body {
     margin: 0;
     width:  100%;
     height: 100%;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+
+    /* done so that unstyled content isn't shown when page is loading */
+    visibility: visible;
+    opacity: 1;
 }
 #c {
     width: 100%;
@@ -20,12 +27,67 @@ html, body {
     bottom: 0;
     left: 0;
     color: white;
-    font-family: 'Roboto', sans-serif;
     font-size: 1.25em;
-    font-weight: 500;
-    letter-spacing: 0.025em;
 }
 
+/*
+    modals
+    src: https://www.w3schools.com/howto/howto_css_modals.asp
+*/
+.modal {
+    display: block;
+    position: fixed; /* Stay in place */
+    z-index: 100; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-header {
+    padding: 2px 16px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+}
+
+.modal-body {
+    padding: 2px 16px;
+}
+
+.modal-content {
+    position: relative;
+    background-color: #fefefe;
+    margin: auto;
+    padding: 0;
+    border: 1px solid #888;
+    width: 70%;
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+    animation-name: animatetop;
+    animation-duration: 2.5s
+}
+
+/* Add Animation */
+@keyframes animatetop {
+    from {top: -300px; opacity: 0}
+    to {top: 0; opacity: 1}
+}
+  
+/* The Close Button */
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+  
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
 
 /*
     loading spinner
@@ -42,9 +104,9 @@ html, body {
     width: 2em;
     height: 2em;
     animation: spin 2s linear infinite;
-  }
+}
   
-  @keyframes spin {
+@keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-  }
+}
