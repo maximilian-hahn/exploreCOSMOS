@@ -20,7 +20,7 @@ let do_update_mesh = true;
 let exported_file = null;
 
 export function initGui() {
-    gui = new GUI();
+    gui = new GUI({name: "Control Panel"});
     
     gui.add({show_vertices: function() {
         let points = scene.getObjectByName("points");
@@ -139,6 +139,33 @@ export function initGui() {
 
         messageToUser("Download the .ply file in the bottom left")
     }}, "export_as_ply").name("export current shape as .ply file");
+
+
+    // information modals
+    let controls_modal = document.getElementById("controls_modal");
+    document.getElementById("close_controls").onclick = function() {
+        controls_modal.style.display = "none";
+    };
+    let tutorial_modal = document.getElementById("tutorial_modal");
+    document.getElementById("close_tutorial").onclick = function() {
+        tutorial_modal.style.display = "none";
+    };
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+        if (event.target == controls_modal) {
+            controls_modal.style.display = "none";
+        }
+        if (event.target == tutorial_modal) {
+            tutorial_modal.style.display = "none";
+        }
+    }
+
+    gui.add({controls_info: function() {
+        if (controls_modal.style.display == "none")
+            controls_modal.style.display = "block";
+        else
+            controls_modal.style.display = "none";
+    }}, "controls_info").name("Controls Overview");
 
     gui.add({more_info: function() {
         window.open("https://github.com/maximilian-hahn/BA", "_blank").focus();

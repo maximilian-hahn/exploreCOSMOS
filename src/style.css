@@ -29,11 +29,13 @@ html, body {
     font-weight: bold;
     color: black;
     background-color: white;
-    border: solid;
-    border-color: grey;
+    border: thin solid rgb(230, 29, 95);
     padding: 0.5em;
     cursor: pointer;
     border-radius: 3px;
+}
+#input::file-selector-button:hover {
+    border: solid rgb(230, 29, 95);
 }
 
 #downloadlink {
@@ -63,7 +65,7 @@ html, body {
 
 .modal-header {
     padding: 2px 16px;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgb(230, 29, 95);
     color: white;
 }
 
@@ -73,14 +75,13 @@ html, body {
 
 .modal-content {
     position: relative;
-    background-color: #fefefe;
+    background-color: white;
     margin: auto;
     padding: 0;
-    border: 1px solid #888;
+    border: thin solid rgb(230, 29, 95);
     width: 70%;
-    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
     animation-name: animatetop;
-    animation-duration: 2.5s
+    animation-duration: 1.5s
 }
 
 /* Add Animation */
@@ -91,7 +92,7 @@ html, body {
   
 /* The Close Button */
 .close {
-    color: #aaa;
+    color: black;
     float: right;
     font-size: 28px;
     font-weight: bold;
@@ -99,7 +100,7 @@ html, body {
   
 .close:hover,
 .close:focus {
-    color: black;
+    color: white;
     text-decoration: none;
     cursor: pointer;
 }
