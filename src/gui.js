@@ -123,7 +123,6 @@ export function initGui() {
         updateAlphaScale();
     }}, "alpha_from_observations").name("calculate alpha from observations");
 
-
     gui.add({export_as_ply: function() {
         const exporter = new PLYExporter();
         const data = new Blob([exporter.parse(model)], {type: 'text/plain'});
@@ -140,6 +139,10 @@ export function initGui() {
 
         messageToUser("Download the .ply file in the bottom left")
     }}, "export_as_ply").name("export current shape as .ply file");
+
+    gui.add({more_info: function() {
+        window.open("https://github.com/maximilian-hahn/BA", "_blank").focus();
+    }}, "more_info").name("for more information click here");
 }
 
 export function resetVertexGui() {

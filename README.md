@@ -4,6 +4,8 @@
 
 Load in your statistical shape model .h5 file and interactively change the shape and compute the posterior mean of the model!
 
+If you need a high-quality model to play around with, you can download the Basel Face Model 2019 for free after registering here: https://faces.dmi.unibas.ch/bfm/bfm2019.html
+
 Since the file size can be in the 100s of MB loading may take several seconds.
 
 ## Controls
