@@ -47,6 +47,15 @@ html, body {
     font-size: 1.25em;
 }
 
+#impressum {
+    display: block;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    color: white;
+    font-size: 0.5em;
+}
+
 /*
     modals
     src: https://www.w3schools.com/howto/howto_css_modals.asp
