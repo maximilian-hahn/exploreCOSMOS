@@ -12,6 +12,7 @@
     "mathjs": "^11.5.0",
     "ml-matrix": "^6.10.4",
     "path-browserify": "^1.0.1",
+    "shepherd.js": "^11.2.0",
     "three": "^0.146.0",
     "toastify-js": "^1.12.0"
   },

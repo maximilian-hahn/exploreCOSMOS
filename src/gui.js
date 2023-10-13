@@ -5,6 +5,9 @@ import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
 import * as THREE from 'three';
 import Toastify from 'toastify-js';
 import "toastify-js/src/toastify.css";
+import Shepherd from 'shepherd.js';
+import "shepherd.js/dist/css/shepherd.css";
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 export let point_scale = 10;
 export let pca_index = 0;
@@ -145,20 +148,12 @@ export function initGui() {
     let controls_modal = document.getElementById("controls_modal");
     document.getElementById("close_controls").onclick = function() {
         controls_modal.style.display = "none";
+        startTutorial();
     };
     let tutorial_modal = document.getElementById("tutorial_modal");
     document.getElementById("close_tutorial").onclick = function() {
         tutorial_modal.style.display = "none";
     };
-    // When the user clicks anywhere outside of the modal, close it
-    window.onclick = function(event) {
-        if (event.target == controls_modal) {
-            controls_modal.style.display = "none";
-        }
-        if (event.target == tutorial_modal) {
-            tutorial_modal.style.display = "none";
-        }
-    }
 
     gui.add({controls_info: function() {
         if (controls_modal.style.display == "none")
@@ -170,6 +165,77 @@ export function initGui() {
     gui.add({more_info: function() {
         window.open("https://github.com/maximilian-hahn/BA", "_blank").focus();
     }}, "more_info").name("for more information click here");
+}
+
+
+function startTutorial() {
+    const tour = new Shepherd.Tour({
+        defaultStepOptions: {
+            cancelIcon: {
+                enabled: true
+            },
+            classes: 'class-1 class-2',
+            scrollTo: { behavior: 'smooth', block: 'center' }
+        }
+    });
+
+    const button_array = [
+        {
+            action() {
+                return this.back();
+            },
+            classes: 'shepherd-button-secondary',
+            text: 'Back'
+        },
+        {
+            action() {
+                return this.next();
+            },
+            text: 'Next'
+        }
+    ];
+
+    tour.addStep({
+        title: 'Welcome to the Tutorial',
+        text: "If you use this application for the first time you can follow this tutorial to get a guided first look!",
+        buttons: button_array,
+        id: 'welcome'
+    });
+
+
+    // create div at projected 3D position for the tour to attach to
+    const shape_div = document.createElement('div');
+    shape_div.className = 'label';
+    shape_div.id = 'shape_div';
+
+    let shape_pos = new THREE.Vector3(0, 0, 0);
+    shape_pos.project(camera);
+    shape_pos.x = (shape_pos.x + 1) * window.innerWidth / 2;
+    shape_pos.y = -(shape_pos.y - 1) * window.innerHeight / 2;
+    shape_pos.z = 0;
+    console.log(shape_pos);
+
+    shape_div.style.position = "absolute";
+    shape_div.style.left = shape_pos.x + 'px';
+    shape_div.style.top = shape_pos.y + 'px';
+
+    document.body.appendChild(shape_div);
+
+    // TODO has to be updated every frame, arrow doesn't follow. maybe css2dobject?
+
+
+    tour.addStep({
+        title: 'The 3D Environment',
+        text: "TODO",
+        attachTo: {
+            element: '#shape_div',
+            on: 'right'
+        },
+        buttons: button_array,
+        id: '3D shape'
+    });
+      
+    tour.start();
 }
 
 export function resetVertexGui() {

@@ -135,8 +135,6 @@ function init() {
 		});
 	}*/
 
-	initGui();
-
 	document.addEventListener('mousedown', onMouseDown);
 	document.addEventListener('mousemove', onMouseMove)
 	document.addEventListener('mouseup', onMouseUp);
@@ -153,6 +151,8 @@ function init() {
 		.catch(console.error);
 
 	console.log(scene);
+
+	initGui();
 }
 
 
