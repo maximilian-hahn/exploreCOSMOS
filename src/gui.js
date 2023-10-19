@@ -144,15 +144,11 @@ export function initGui() {
     }}, "export_as_ply").name("export current shape as .ply file");
 
 
-    // information modals
+    // show controls at startup
     let controls_modal = document.getElementById("controls_modal");
     document.getElementById("close_controls").onclick = function() {
         controls_modal.style.display = "none";
-        startTutorial();
-    };
-    let tutorial_modal = document.getElementById("tutorial_modal");
-    document.getElementById("close_tutorial").onclick = function() {
-        tutorial_modal.style.display = "none";
+        // startTutorial(); // TODO
     };
 
     gui.add({controls_info: function() {
