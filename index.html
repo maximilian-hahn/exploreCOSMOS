@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Bachelor's Thesis</title>
+    <style>html{visibility: hidden; opacity: 0;}</style>
 </head>
 
 <body>
@@ -12,4 +13,30 @@
     <input type="file" id="input" name="input" accept=".h5">
     <div class="loader", id="spinner"></div>
     <a download="shape.ply" id="downloadlink">download shape</a>
+
+    <div id="controls_modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="close_controls" class="close">&times;</span>
+                <h2>Controls</h2>
+            </div>
+            <div class="modal-body">
+                <ul>
+                    <li><strong>Left Mouse Button:</strong> move mouse to change camera angle around shape.</li>
+                    <li><strong>Mouse Wheel:</strong> zooms in and out.</li>
+                    <li><strong>CTRL + LMB on shape:</strong> selects the closest vertex to the clicked position.
+                    <ul>
+                        <li><strong>LMB on x,y,z-axis:</strong> move mouse in screen&#39;s x,y,z-direction to move vertex along x,y,z-axis.</li>
+                    </ul>
+                    <li><strong>CTRL + LMB on background:</strong> removes the selection again.</li>
+                    
+                    </li>
+                    <li><strong>SHIFT + LMB on shape:</strong> selects the closest landmark to the clicked position.</li>
+                </ul>
+                <p>For more information, especially about the control panel on the right, <a href="https://github.com/maximilian-hahn/BA" target="_blank">click here</a>.</p>
+            </div>
+        </div>
+    </div>
+
+    <a id="imprint" href="https://www.reproducecvpr.tf.fau.eu/imprint" target="_blank">Imprint</a>
 </body>
