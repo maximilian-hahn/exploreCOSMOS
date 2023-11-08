@@ -19,6 +19,7 @@ let gui, vertex_folder;
 let vertex_controllers = new Array();
 let alpha_scale = new Array(10).fill(0);
 let alpha_controllers = new Array();
+let angle = 0;
 let do_update_mesh = true;
 let exported_file = null;
 
@@ -108,6 +109,21 @@ export function initGui() {
         controls.rotateSpeed *= -1;
     }}, "y_axis").name("flip y axis");
     camera_folder.add({recenter: recenterCamera}, "recenter").name("target camera to center of mesh");
+        
+    // this actually rotates the model instead of the camera
+    camera_folder.add({angle: angle}, "angle", 0, 360, 1).name("change angle")
+        .onChange(value => {
+            controls.enabled = false;
+            model.rotation.y = THREE.MathUtils.degToRad(value);
+            recenterCamera();
+            // TODO: automatically recenter, just recenterCamera() doesn't seem to work
+            // + try to use OrbitConrols for this instead as this messes that up
+        });
+    camera_folder.add({reset_camera: function() {
+        model.rotation.y = 0;
+        controls.enabled = true;
+        controls.reset();
+    }}, "reset_camera").name("reset camera");
 
     settings.addColor({color: '#ffffff'}, 'color').name('model color')
         .onChange(function(e) {
