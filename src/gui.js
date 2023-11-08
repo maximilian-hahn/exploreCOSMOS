@@ -23,7 +23,8 @@ let do_update_mesh = true;
 let exported_file = null;
 
 export function initGui() {
-    gui = new GUI({name: "Control Panel"});
+    gui = new GUI({name: "control panel"});
+    gui.__closeButton.innerText = "close controls";
     
     gui.add({show_vertices: function() {
         let points = scene.getObjectByName("points");
@@ -37,7 +38,7 @@ export function initGui() {
 
     let alpha_folder = gui.addFolder("scale principal components");
     for (let i = 0; i < alpha_scale.length; i++) {
-        alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("index " + i)
+        alpha_controllers.push(alpha_folder.add({alpha_scale: alpha_scale[i]}, "alpha_scale", -3, 3, 0.001).name("pc " + i)
             .onChange(value => {
                 if (do_update_mesh) updateMesh(updateAlpha(value, i));
                 // controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
@@ -49,7 +50,7 @@ export function initGui() {
             if (do_update_mesh) updateMesh(updateAlpha(value, pca_index));
             alpha_controllers[pca_index].setValue(value);
         });
-    let controller_pca_index = alpha_indexed_folder.add({pca_index}, "pca_index", 0, 10, 1).name("pca index")
+    let controller_pca_index = alpha_indexed_folder.add({pca_index}, "pca_index", 0, 10, 1).name("pc index")
         .onChange(value => {
             pca_index = value;
             controller_alpha_scale.setValue(alpha.arraySync()[pca_index]);
@@ -156,7 +157,7 @@ export function initGui() {
             controls_modal.style.display = "block";
         else
             controls_modal.style.display = "none";
-    }}, "controls_info").name("Controls Overview");
+    }}, "controls_info").name("controls overview");
 
     gui.add({more_info: function() {
         window.open("https://github.com/maximilian-hahn/BA", "_blank").focus();
