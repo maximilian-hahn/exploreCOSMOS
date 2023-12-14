@@ -165,7 +165,7 @@ export function initGui() {
     let controls_modal = document.getElementById("controls_modal");
     document.getElementById("close_controls").onclick = function() {
         controls_modal.style.display = "none";
-        // startTutorial(); // TODO
+        startTutorial(); // TODO
     };
 
     gui.add({controls_info: function() {
@@ -183,11 +183,11 @@ export function initGui() {
 
 function startTutorial() {
     const tour = new Shepherd.Tour({
+        useModalOverlay: true,
         defaultStepOptions: {
             cancelIcon: {
                 enabled: true
             },
-            classes: 'class-1 class-2',
             scrollTo: { behavior: 'smooth', block: 'center' }
         }
     });
@@ -197,7 +197,6 @@ function startTutorial() {
             action() {
                 return this.back();
             },
-            classes: 'shepherd-button-secondary',
             text: 'Back'
         },
         {
@@ -245,7 +244,8 @@ function startTutorial() {
             on: 'right'
         },
         buttons: button_array,
-        id: '3D shape'
+        canClickTarget: false,
+        id: '3D_shape'
     });
       
     tour.start();
