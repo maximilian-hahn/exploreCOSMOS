@@ -176,7 +176,7 @@ export function initGui() {
     }}, "controls_info").name("controls overview");
 
     gui.add({more_info: function() {
-        window.open("https://github.com/maximilian-hahn/BA", "_blank").focus();
+        window.open("https://github.com/maximilian-hahn/exploreCOSMOS", "_blank").focus();
     }}, "more_info").name("for more information click here");
 }
 

@@ -1,6 +1,6 @@
 # Interactive Creation and Modification of Statistical Shape Models
 
-**Link to web application:** https://maximilian-hahn.github.io/BA/
+**Link to web application:** https://maximilian-hahn.github.io/exploreCOSMOS/
 
 Load in your statistical shape model .h5 file and interactively change the shape and compute the posterior mean of the model!
 
