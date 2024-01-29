@@ -25,6 +25,7 @@ let exported_file = null;
 
 export function initGui() {
     gui = new GUI({name: "control panel"});
+    gui.domElement.id = "gui_main";
     gui.__closeButton.innerText = "close controls";
     
     gui.add({show_vertices: function() {
@@ -211,7 +212,7 @@ function startTutorial() {
         title: 'Welcome to the Tutorial',
         text: "If you use this application for the first time you can follow this tutorial to get a guided first look!",
         buttons: button_array,
-        id: 'welcome'
+        id: 'tut_welcome'
     });
 
 
@@ -234,18 +235,62 @@ function startTutorial() {
     document.body.appendChild(shape_div);
 
     // TODO has to be updated every frame, arrow doesn't follow. maybe css2dobject?
+    // maybe not needed if background is just not clickable
 
 
     tour.addStep({
         title: 'The 3D Environment',
-        text: "TODO",
+        text: "Here you can look at the current shape of your statistical shape model from every angle, click on vertices and change their positions as you desire.",
         attachTo: {
             element: '#shape_div',
             on: 'right'
         },
         buttons: button_array,
         canClickTarget: false,
-        id: '3D_shape'
+        id: 'tut_3D_shape'
+    });
+
+    tour.addStep({
+        title: 'Load Your Model',
+        text: "Here you can load in your statistical shape model .h5 file, if it follows the Statismo file format.",
+        attachTo: {
+            element: '#input',
+            on: 'bottom'
+        },
+        buttons: button_array,
+        canClickTarget: false,
+        id: 'tut_load_model'
+    });
+
+    tour.addStep({
+        title: 'The Controls',
+        text: "Here you can choose between different actions that for example modify the current shape. If you have questions as to what each button does, visit the github page through the button on the bottom.",
+        attachTo: {
+            element: '#gui_main',
+            on: 'left'
+        },
+        buttons: button_array,
+        canClickTarget: false,
+        id: 'tut_gui'
+    });
+
+    tour.addStep({
+        title: 'Try It Out!',
+        text: "This was a brief tour of exploreCOSMOS! If you have no specific goals, just try and play around with the principal component sliders or change the positions of one or two vertices, then compute the posterior and look at the results!",
+        attachTo: {
+
+        },
+        buttons: [
+            button_array[0],
+            {
+                action() {
+                    tour.complete();
+                },
+                text: 'Done'
+            }
+        ],
+        canClickTarget: false,
+        id: 'tut_done'
     });
       
     tour.start();
