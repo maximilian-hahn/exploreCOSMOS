@@ -22,6 +22,7 @@ let alpha_controllers = new Array();
 let angle = 0;
 let do_update_mesh = true;
 let exported_file = null;
+let tutorial_flag = true;
 
 export function initGui() {
     gui = new GUI({name: "control panel"});
@@ -166,7 +167,10 @@ export function initGui() {
     let controls_modal = document.getElementById("controls_modal");
     document.getElementById("close_controls").onclick = function() {
         controls_modal.style.display = "none";
-        startTutorial(); // TODO
+        if (tutorial_flag) {
+            startTutorial();
+            tutorial_flag = false;
+        }
     };
 
     gui.add({controls_info: function() {
