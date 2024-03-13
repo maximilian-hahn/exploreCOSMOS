@@ -1,4 +1,6 @@
-# Interactive Creation and Modification of Statistical Shape Models
+# exploreCOSMOS: Interactive Exploration of Conditional Statistical Shape Models in the Web-browser
+
+**Link to the paper:** https://arxiv.org/abs/2402.13131
 
 **Link to web application:** https://maximilian-hahn.github.io/exploreCOSMOS/
 
