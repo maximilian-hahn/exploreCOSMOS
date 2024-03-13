@@ -15,8 +15,8 @@ preferred-citation:
     given-names: "Maximilian"
   - family-names: "Egger"
     given-names: "Bernhard"
-  booktitle: "BVM Workshop"
+  collection-title: "BVM Workshop"
   start: 108 # First page number
   end: 113 # Last page number
   year: 2024
-  organization: "Springer"
+  institution: "Springer"
