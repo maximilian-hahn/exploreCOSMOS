@@ -5,11 +5,11 @@ authors:
   given-names: "Maximilian"
 - family-names: "Egger"
   given-names: "Bernhard"
-title: "Interactive Exploration of Conditional Statistical Shape Models in the Web-browser: exploreCOSMOS"
+title: "exploreCOSMOS: Interactive Exploration of Conditional Statistical Shape Models in the Web-browser"
 url: "https://github.com/maximilian-hahn/exploreCOSMOS"
 preferred-citation:
   type: conference-paper
-  title: "Interactive Exploration of Conditional Statistical Shape Models in the Web-browser: exploreCOSMOS"
+  title: "exploreCOSMOS: Interactive Exploration of Conditional Statistical Shape Models in the Web-browser"
   authors:
   - family-names: "Hahn"
     given-names: "Maximilian"
