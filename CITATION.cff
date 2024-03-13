@@ -10,13 +10,13 @@ url: "https://github.com/maximilian-hahn/exploreCOSMOS"
 preferred-citation:
   type: conference-paper
   title: "exploreCOSMOS: Interactive Exploration of Conditional Statistical Shape Models in the Web-browser"
+  abbreviation: "interactive"
   authors:
   - family-names: "Hahn"
     given-names: "Maximilian"
   - family-names: "Egger"
     given-names: "Bernhard"
   collection-title: "BVM Workshop"
-  start: 108 # First page number
-  end: 113 # Last page number
+  start: 108
+  end: 113
   year: 2024
-  institution: "Springer"
