@@ -47,3 +47,19 @@ Since the file size can be in the 100s of MB loading may take several seconds.
 
 Test model created on the basis of "Face Mesh" (https://skfb.ly/6QUCW) by cardio_man, licensed under Creative Commons
 Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+## Citation
+
+Please cite the following paper if this software helps your research:
+
+```
+@inproceedings{hahn2024interactive,
+  title={Interactive Exploration of Conditional Statistical Shape Models in the Web-browser: exploreCOSMOS},
+  author={Hahn, Maximilian and Egger, Bernhard},
+  booktitle={BVM Workshop},
+  pages={108--113},
+  year={2024},
+  organization={Springer}
+}
+```
+
